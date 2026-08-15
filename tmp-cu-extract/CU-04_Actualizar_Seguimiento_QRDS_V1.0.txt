@@ -1,0 +1,337 @@
+﻿SISTEMA DE QUEJAS, RECLAMOS, DENUNCIAS Y SUGERENCIAS
+CON MÓDULO DE BITÁCORAS MUNICIPALES
+CASO DE USO
+CU-04: ACTUALIZAR SEGUIMIENTO DEL CASO
+Registro de Avances, Actualizaciones Públicas y Control de Plazos
+Institución
+Código CU
+Versión
+Municipalidad / Institución Pública
+CU-04
+1.0
+Nombre del Caso de Uso
+Fecha
+Autor
+Estado
+Actualizar Seguimiento del Caso en el Sistema QRDS
+15/07/2026
+Bryan Cristales
+Aprobado
+
+1. Historial de Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+Bryan Cristales
+15/07/2026
+Definición Inicial
+1.0
+2. Introducción
+El presente documento describe el Caso de Uso CU-04: Actualizar Seguimiento del Caso del Sistema de Quejas, Reclamos, Denuncias y Sugerencias (QRDS) Municipal. Este caso de uso implementa el módulo de Seguimiento definido en los Términos de Referencia (TDR) y garantiza la trazabilidad operativa mientras el caso se encuentra activo.
+A diferencia de CU-03 (Gestionar Caso), que se concentra en la asignación de agentes y en las transiciones de estado del ciclo de vida, CU-04 se enfoca en el registro continuo de avances: actualizaciones de progreso, mensajes visibles para el ciudadano, control de plazos de respuesta, escalamiento por vencimiento y evidencias de seguimiento. Cada actualización alimenta la línea de tiempo del caso y queda registrada de forma inmutable en la bitácora de auditoría.
+Este módulo es crítico para la transparencia institucional: el ciudadano puede consultar vía código de seguimiento (CU-07 / portal público) el progreso de su caso sin exponer información interna sensible.
+3. Objetivo
+Permitir que el agente asignado (y roles superiores) registren actualizaciones de seguimiento sobre un caso en estado EN_REVISION o EN_PROCESO, diferenciando entre notas internas y actualizaciones públicas, controlar el cumplimiento de plazos según el tipo de caso, notificar al ciudadano cuando corresponda y dejar evidencia auditable de cada avance.
+4. Definición del Caso de Uso
+4.1 Actores
+ID
+Actor
+Descripción
+AC-01
+Agente / Funcionario
+Usuario con rol AGENTE. Registra avances y actualizaciones públicas/internas únicamente en los casos asignados a él.
+AC-02
+Supervisor
+Usuario con rol SUPERVISOR. Puede registrar seguimientos en casos de su área, escalar casos y prorrogar plazos con justificación.
+AC-03
+Administrador
+Usuario con rol ADMIN. Tiene control total sobre seguimientos, plazos y escalamientos de cualquier caso.
+AC-04
+Ciudadano
+Consulta el progreso público del caso mediante el código de seguimiento (consumidor de actualizaciones públicas). No escribe seguimientos.
+AC-05
+Sistema QRDS
+Valida permisos, calcula plazos, envía notificaciones, actualiza la línea de tiempo y registra eventos en bitácora.
+4.2 Precondiciones
+El usuario interno debe estar autenticado (CU-01) con token JWT válido.
+El caso debe existir en BD y encontrarse en estado EN_REVISION o EN_PROCESO. [RN-01]
+Para el Agente: el caso debe estar asignado a su usuario (agente_asignado_id). Supervisor/Admin según reglas de visibilidad de CU-03.
+La tabla de plazos por tipo de caso debe estar configurada (Queja: 15 días hábiles, Reclamo: 20, Denuncia: 30, Sugerencia: 30).
+El módulo de notificaciones y bitácoras debe estar operativo.
+PostgreSQL debe estar disponible con las tablas: casos, seguimientos_caso, bitacora_casos, documentos_caso, usuarios.
+4.3 Diferencia con CU-03
+Aspecto
+CU-03 Gestionar Caso
+CU-04 Actualizar Seguimiento
+Propósito
+Asignar agente y cambiar estado del ciclo de vida
+Registrar avances sin necesariamente cambiar de estado
+Salida principal
+Nuevo estado (EN_REVISION, EN_PROCESO, etc.)
+Entrada en la línea de tiempo de seguimiento
+Visibilidad
+Observaciones internas (solo staff)
+Actualizaciones públicas (ciudadano) + notas internas
+Plazos
+No gestiona plazos
+Controla vencimiento, alertas y prórrogas
+Trigger de resolución
+Prepara el caso para atención
+Acumula evidencia hasta derivar a CU-05 Resolver
+5. Flujo Normal Básico
+Paso
+Actor
+Acción
+1
+Usuario Interno
+Desde la bandeja o el detalle del caso (CU-03), selecciona un caso en EN_REVISION o EN_PROCESO y abre la pestaña Seguimiento.
+2
+Sistema
+Carga la línea de tiempo de seguimientos existentes (cronológica descendente), el plazo de respuesta, días hábiles restantes/vencidos y el estado actual. [RN-02]
+3
+Usuario Interno
+Selecciona Nueva Actualización de Seguimiento.
+4
+Sistema
+Despliega el formulario: tipo (PÚBLICA / INTERNA), título, descripción, porcentaje de avance opcional (0-100), adjunto opcional y checkbox Notificar al ciudadano. [RN-03]
+5
+Usuario Interno
+Completa los campos. Si elige PÚBLICA, marca o desmarca la notificación al ciudadano. Si adjunta evidencia, selecciona el archivo. [FA-01] [FA-02]
+6
+Usuario Interno
+Presiona Guardar Seguimiento.
+7
+Sistema
+Valida campos obligatorios, tipo de actualización, estado del caso y permisos del usuario. [RN-01] [RN-04] [FA-03] [FA-04]
+8
+Sistema
+Persiste el registro en seguimientos_caso, actualiza fecha_ultima_actualizacion del caso y, si se envió porcentaje, actualiza avance_porcentaje. [RN-05]
+9
+Sistema
+Si hay adjunto, lo almacena y lo asocia al seguimiento (y opcionalmente a documentos_caso). [FA-02]
+10
+Sistema
+Si la actualización es PÚBLICA y se solicitó notificar, y el caso no es anónimo, envía correo al ciudadano con resumen del avance (sin datos internos). [RN-06] [FA-05]
+11
+Sistema
+Registra en bitacora_casos: usuario, caso, tipo_evento=SEGUIMIENTO_REGISTRADO, descripción, fecha, hora, IP. [RN-07]
+12
+Sistema
+Actualiza la línea de tiempo en pantalla y muestra confirmación: Seguimiento registrado correctamente.
+13
+—
+Fin del caso de uso.
+6. Flujos Alternos
+Código
+Nombre
+Descripción
+FA-01
+Actualización Solo Interna
+El usuario elige tipo INTERNA. El registro no es visible en la consulta pública (CU-07). No se ofrece notificar al ciudadano (checkbox deshabilitado). Queda en bitácora y en la línea de tiempo interna.
+FA-02
+Adjuntar Evidencia de Seguimiento
+El usuario adjunta un archivo (PDF, JPG, PNG, DOCX ≤ 5 MB). El sistema valida formato/tamaño. Si falla, muestra error por archivo y no guarda el seguimiento hasta corregir o quitar el adjunto. La descarga posterior se registra en bitácora (TDR).
+FA-03
+Caso en Estado No Válido
+El caso está RESUELTO, CERRADO o ANULADO. El sistema bloquea nuevas actualizaciones (excepto Admin puede agregar nota histórica INTERNA con justificación excepcional). Muestra: No se pueden registrar seguimientos en casos finalizados.
+FA-04
+Sin Permiso Sobre el Caso
+Un AGENTE intenta registrar seguimiento en un caso no asignado. HTTP 403. Mensaje: No tiene permisos para actualizar este caso. Intento registrado en bitácora.
+FA-05
+Fallo al Enviar Notificación
+El seguimiento ya se guardó. El SMTP falla. Se muestra aviso: Seguimiento guardado, pero no fue posible notificar al ciudadano. Se registra fallo en log/bitácora de notificaciones. El ciudadano aún verá el avance al consultar el portal.
+FA-06
+Alerta de Plazo por Vencer
+Al abrir el caso, el sistema detecta que restan ≤ 3 días hábiles. Muestra banner amarillo: Plazo próximo a vencer. El Supervisor/Admin puede prorrogar (FA-07).
+FA-07
+Prorrogar Plazo
+Supervisor o Admin solicita prórroga: días hábiles adicionales (1-15) + justificación ≥ 20 caracteres. El sistema recalcula fecha_limite_respuesta, registra PRORROGA_PLAZO en bitácora y opcionalmente notifica al ciudadano.
+FA-08
+Escalamiento por Vencimiento
+Job programado (o acción manual del Supervisor) detecta plazo vencido sin resolución. Marca PRIORIDAD=ALTA / escalado=true, notifica al Supervisor del área y registra ESCALAMIENTO en bitácora. No cambia el estado del ciclo de vida automáticamente.
+FA-09
+Edición No Permitida
+El usuario intenta modificar o eliminar un seguimiento ya registrado. El sistema lo impide: los seguimientos son inmutables (solo INSERT). Para corregir, se registra un nuevo seguimiento de tipo CORRECCIÓN que referencia al anterior. [RN-08]
+FA-10
+Derivar a Resolución
+Desde el panel de seguimiento, el agente selecciona Proceder a Resolver (CU-05). El sistema no resuelve aquí; redirige al flujo de resolución formal manteniendo el historial de seguimientos intacto.
+7. Postcondiciones
+Quedó registrado al menos un nuevo seguimiento asociado al caso (público y/o interno).
+fecha_ultima_actualizacion (y avance_porcentaje si aplica) del caso fueron actualizados.
+Si la actualización fue pública y el ciudadano consultó/recibió correo, conoce el avance sin ver notas internas.
+El evento quedó en bitácora de forma inmutable.
+Si hubo prórroga o escalamiento, el plazo/prioridad quedó actualizado y auditado.
+El caso permanece listo para continuar en CU-04 (más avances), CU-05 (Resolver) o CU-03 (cambio de estado si aplica).
+8. Especificación de Campos del Formulario de Seguimiento
+Campo
+Obligatorio
+Tipo
+Validación
+Nota
+Tipo de Actualización
+Sí
+Select
+PÚBLICA | INTERNA
+Define visibilidad ciudadana
+Título
+Sí
+Text
+5-120 caracteres
+Resumen corto del avance
+Descripción
+Sí
+Textarea
+20-2000 caracteres
+Detalle del seguimiento
+Porcentaje de Avance
+No
+Number
+0-100 entero
+Actualiza avance_porcentaje del caso
+Notificar Ciudadano
+No
+Checkbox
+Solo si tipo=PÚBLICA
+Deshabilitado si INTERNA o anónimo
+Archivo Adjunto
+No
+File
+PDF/JPG/PNG/DOCX ≤5MB
+Evidencia del avance
+Referencia a Seguimiento Previo
+No
+Select
+ID existente del caso
+Usado en CORRECCIÓN (FA-09)
+9. Reglas de Negocio
+Código
+Descripción
+RN-01
+Solo se permiten nuevos seguimientos cuando el estado del caso es EN_REVISION o EN_PROCESO. Excepción: Admin puede agregar nota INTERNA en RESUELTO/CERRADO/ANULADO con justificación ≥ 20 caracteres (auditoría histórica), sin notificar al ciudadano.
+RN-02
+Al abrir el seguimiento, el sistema calcula y muestra: fecha_limite_respuesta, días hábiles restantes (o días de atraso), indicador visual (verde ≥4 días, amarillo 1-3, rojo vencido).
+RN-03
+Tipos de seguimiento: PÚBLICA (visible en consulta ciudadana CU-07) e INTERNA (solo usuarios autenticados con permiso sobre el caso). Nunca se mezclan en la respuesta pública.
+RN-04
+Permisos: AGENTE solo en casos asignados; SUPERVISOR en casos de su área; ADMIN en todos. La validación es obligatoria en backend (@PreAuthorize + chequeo de ownership).
+RN-05
+Cada seguimiento genera un registro nuevo. No se actualizan ni eliminan seguimientos existentes. El campo avance_porcentaje del caso toma el último valor enviado (si viene informado).
+RN-06
+Notificación por correo solo si: tipo=PÚBLICA AND notificar=true AND es_anonimo=false AND email_ciudadano válido. El correo incluye: código, título del avance, descripción pública, estado actual, fecha. No incluye notas internas ni datos de funcionarios más allá del área.
+RN-07
+Todo registro, prórroga, escalamiento o intento denegado debe quedar en bitacora_casos / bitácora de auditoría con usuario, fecha, hora, IP y descripción. Bitácoras inmutables.
+RN-08
+Inmutabilidad del seguimiento: prohibido UPDATE/DELETE sobre seguimientos_caso. Correcciones = nuevo registro tipo CORRECCIÓN vinculado con seguimiento_padre_id.
+RN-09
+Plazos por tipo (días hábiles desde fecha_registro): Queja(Q)=15, Reclamo(R)=20, Denuncia(D)=30, Sugerencia(S)=30. fecha_limite_respuesta se calcula al crear el caso (CU-02) y puede prorrogarse solo por SUPERVISOR/ADMIN (FA-07).
+RN-10
+La consulta pública (código de seguimiento) expone únicamente: código, tipo, estado, fecha_registro, fecha_ultima_actualizacion, avance_porcentaje (opcional) y lista de seguimientos PÚBLICA (título, descripción, fecha). Sin email, teléfono, IP ni notas internas.
+RN-11
+El porcentaje de avance es informativo; llegar a 100% NO resuelve ni cierra el caso. La resolución formal corresponde a CU-05.
+RN-12
+Días hábiles: se excluyen sábados, domingos y días feriados configurados en tabla dias_no_laborables. El cálculo debe ser consistente en backend.
+10. Requerimientos No Funcionales
+ID
+Tipo
+Descripción
+RNF-01
+Rendimiento
+Registrar un seguimiento (validación + INSERT + bitácora) ≤ 3 segundos. Carga de línea de tiempo ≤ 2 segundos con hasta 100 entradas.
+RNF-02
+Seguridad
+Endpoints autenticados con JWT. Filtrado estricto de seguimientos públicos vs internos. Prevención de IDOR sobre caso_id.
+RNF-03
+Usabilidad
+Línea de tiempo visual (timeline), badges PÚBLICA/INTERNA, indicador de plazo semáforo, formulario con contador de caracteres.
+RNF-04
+Auditoría
+Cumplir TDR: registrar creación de seguimientos y descarga de evidencias; impedir modificación de bitácoras.
+RNF-05
+Disponibilidad
+El job de detección de vencimientos (FA-08) debe ejecutarse al menos 1 vez al día (recomendado cada hora laboral).
+RNF-06
+Integridad
+Transacción atómica: guardar seguimiento + actualizar caso + bitácora. Si falla un paso de persistencia, rollback completo. La notificación SMTP es asíncrona/post-commit.
+11. Modelo de Datos Relacionado
+Tabla
+Campos Principales
+seguimientos_caso
+id BIGSERIAL PK; caso_id FK; usuario_id FK; tipo VARCHAR(20) PÚBLICA|INTERNA|CORRECCIÓN; titulo VARCHAR(120); descripcion TEXT; porcentaje_avance INT NULL; notificado BOOLEAN; seguimiento_padre_id FK NULL; creado_en TIMESTAMP DEFAULT NOW(); ip_registro VARCHAR(45)
+casos (campos CU-04)
+Además de CU-02/CU-03: fecha_limite_respuesta DATE; avance_porcentaje INT DEFAULT 0; prioridad VARCHAR(10) DEFAULT NORMAL; escalado BOOLEAN DEFAULT false; fecha_prorroga TIMESTAMP NULL
+documentos_seguimiento
+id BIGSERIAL PK; seguimiento_id FK; nombre_archivo VARCHAR(255); ruta_archivo VARCHAR(500); tipo_mime VARCHAR(100); tamanio_bytes BIGINT; subido_en TIMESTAMP
+dias_no_laborables
+id BIGSERIAL PK; fecha DATE UNIQUE; descripcion VARCHAR(200) — usada para cálculo de días hábiles
+bitacora_casos
+Extiende eventos: SEGUIMIENTO_REGISTRADO, PRORROGA_PLAZO, ESCALAMIENTO, DESCARGA_EVIDENCIA, INTENTO_DENEGADO
+12. Descripción de la Interfaz (Mockup Textual)
+Sección
+Contenido
+Cabecera del caso
+Código, tipo, estado (badge), agente, plazo con semáforo, % avance (barra de progreso).
+Tabs del detalle
+Resumen | Seguimiento (activo en CU-04) | Documentos | Historial/Bitácora (según rol).
+Timeline
+Lista vertical cronológica: fecha/hora, autor (nombre interno), badge tipo, título, descripción, adjunto si hay.
+Formulario
+Drawer o modal Nueva actualización con campos de la sección 8 y botones Guardar / Cancelar.
+Acciones secundarias
+Prorrogar plazo (Supervisor/Admin), Escalar, Proceder a Resolver → CU-05.
+Vista ciudadana (referencia)
+En portal: solo entradas PÚBLICA + barra de avance + estado. Sin autores internos ni notas INTERNAS.
+13. Criterios de Aceptación (Definition of Done)
+ID
+Criterio
+CA-01
+Un agente puede registrar un seguimiento PÚBLICO en un caso asignado EN_PROCESO y el ciudadano lo ve al consultar el código.
+CA-02
+Un seguimiento INTERNO no aparece en GET público ni en el correo al ciudadano.
+CA-03
+No es posible editar ni borrar un seguimiento existente (API retorna 405 o 403).
+CA-04
+Al vencer el plazo, el caso queda escalado y el supervisor recibe notificación.
+CA-05
+Una prórroga válida extiende fecha_limite_respuesta y queda en bitácora con justificación.
+CA-06
+Un agente no puede registrar seguimiento en casos de otro agente (403).
+CA-07
+Si SMTP falla, el seguimiento permanece guardado y se informa el fallo de notificación.
+CA-08
+avance_porcentaje=100 no cambia el estado a RESUELTO automáticamente.
+14. Relación con Otros Casos de Uso
+CU
+Relación
+CU-01
+Autenticación requerida para registrar seguimientos internos.
+CU-02
+Define plazos iniciales y fecha_limite_respuesta al registrar el caso.
+CU-03
+Provee el caso asignado y en estado EN_REVISION/EN_PROCESO; comparte detalle/bandeja.
+CU-05
+El agente deriva a Resolver cuando el seguimiento concluye la atención de fondo.
+CU-06
+Tras resolución, el cierre archiva; CU-04 ya no admite avances normales.
+CU-07
+Consulta pública consume solo seguimientos PÚBLICA.
+CU-08
+Envío de correos de avance, prórroga y escalamiento.
+CU-11
+Los eventos de seguimiento alimentan la consulta de bitácoras.
+CU-12
+Evidencias adjuntas al seguimiento se gestionan como documentos.
+15. Firmas Necesarias
+Persona
+Rol
+Firma / Fecha
+Bryan Cristales
+Desarrollador 
+
+
+Analista de Sistemas
+
+Edy Ramirez
+Responsable Institucional
+
+

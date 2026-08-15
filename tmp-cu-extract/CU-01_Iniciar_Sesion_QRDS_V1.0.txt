@@ -1,0 +1,237 @@
+﻿SISTEMA DE QUEJAS, RECLAMOS, DENUNCIAS Y SUGERENCIAS
+CON MÓDULO DE BITÁCORAS MUNICIPALES
+
+
+CASO DE USO
+CU-01: INICIAR SESIÓN
+Autenticación de Usuarios con JWT y Registro en Bitácora
+
+Institución
+Código CU
+Versión
+Municipalidad / Institución Pública
+CU-01
+1.0
+Nombre del Caso de Uso
+Iniciar Sesión en el Sistema QRDS
+Fecha
+11/07/2026
+Autor
+Bryan Cristales
+Estado
+Aprobado
+
+1. Historial de Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+Bryan Cristales
+11/07/2026
+Definición Inicial
+1.0
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+2. Introducción
+El presente caso de uso CU-01 describe el proceso de autenticación de usuarios del Sistema QRDS. A diferencia del portal público (CU-00), este módulo es exclusivo para usuarios internos (administradores, supervisores y agentes/funcionarios) que requieren acceso autenticado para gestionar casos, generar reportes o administrar el sistema.
+La autenticación utiliza JWT (JSON Web Token) para garantizar sesiones seguras, stateless y con expiración controlada. Todo intento de inicio y cierre de sesión queda registrado de forma inmutable en la bitácora de auditoría del sistema.
+3. Objetivo
+Autenticar de forma segura a los usuarios internos del sistema QRDS mediante correo electrónico y contraseña, generar un token JWT con la información del rol del usuario, registrar el evento en la bitácora de auditoría y redirigir al módulo correspondiente según el rol asignado.
+4. Actores
+ID
+Actor
+Descripción
+AC-01
+Administrador
+Usuario con rol ADMIN. Accede al panel de administración completo del sistema.
+AC-02
+Supervisor
+Usuario con rol SUPERVISOR. Accede a gestión de casos y reportes asignados a su área.
+AC-03
+Agente / Funcionario
+Usuario con rol AGENTE. Accede a los casos asignados para dar seguimiento y resolución.
+AC-04
+Sistema QRDS
+Sistema que valida credenciales, genera token JWT, registra el acceso en bitácora y redirige según rol.
+
+5. Precondiciones
+El backend (Spring Boot) debe estar activo y accesible.
+La base de datos debe estar operativa con la tabla 'usuarios' poblada.
+El usuario debe tener una cuenta activa (campo activo = true) en el sistema.
+El módulo de bitácoras debe estar operativo para registrar el evento.
+La comunicación debe realizarse mediante HTTPS (certificado SSL vigente).
+El portal público (CU-00) debe estar activo como punto de entrada al login.
+6. Flujo Normal Básico
+Paso
+Actor
+Acción
+1
+Usuario
+Ingresa a la URL del login (/login) o es redirigido desde el portal (CU-00 FA-03).
+2
+Sistema
+Despliega el formulario de inicio de sesión con los campos: Usuario (correo electrónico) y Contraseña. [RN-01]
+3
+Usuario
+Ingresa su correo electrónico institucional y contraseña.
+4
+Sistema
+Valida que ambos campos estén completos y con formato válido. [RN-02] [FA-01]
+5
+Usuario
+Presiona el botón 'Iniciar Sesión'.
+6
+Sistema
+Envía las credenciales al backend vía POST /api/auth/login con HTTPS. [RN-03]
+7
+Sistema
+El backend valida las credenciales contra la base de datos (contraseña hasheada con BCrypt). [FA-02] [FA-03] [FA-04]
+8
+Sistema
+Si las credenciales son válidas: genera token JWT con expiración de 8 horas. Incluye en el payload: userId, email, rol, nombre. [RN-04]
+9
+Sistema
+Almacena el token en localStorage del navegador y registra el inicio de sesión en la bitácora: usuario, fecha, hora, IP, resultado. [RN-05]
+10
+Sistema
+Redirige al usuario al módulo correspondiente según su rol. [RN-06]
+11
+—
+Fin del caso de uso.
+
+7. Flujos Alternos
+Código
+Nombre
+Descripción
+FA-01
+Campos vacíos o formato inválido
+El usuario deja campos vacíos o ingresa un correo con formato inválido. El sistema muestra validación en tiempo real: campo resaltado en rojo con mensaje descriptivo. El botón 'Iniciar Sesión' permanece deshabilitado hasta que ambos campos sean válidos. Regresa al paso 3.
+FA-02
+Credenciales Incorrectas
+El backend retorna HTTP 401. El sistema muestra el mensaje: 'Usuario o contraseña incorrectos. Verifique sus datos e intente nuevamente.' [RN-07]. No se especifica cuál campo es incorrecto por seguridad. Regresa al paso 3.
+FA-03
+Usuario Inactivo o Bloqueado
+El backend retorna HTTP 403. El sistema muestra: 'Su cuenta está inactiva o bloqueada. Contacte al administrador del sistema.' El acceso queda registrado en bitácora como intento fallido con motivo.
+FA-04
+Cuenta Bloqueada por Intentos Fallidos
+El usuario supera el número máximo de intentos fallidos permitidos (RN-07). El sistema bloquea temporalmente la cuenta por 15 minutos y muestra: 'Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intente en 15 minutos o contacte al administrador.' Se registra en bitácora.
+FA-05
+Error de Conexión con el Servidor
+El backend no responde (timeout). El sistema muestra: 'Error de conexión. Verifique su conexión a internet e intente nuevamente.' Se habilita botón de reintento. Regresa al paso 5.
+FA-06
+Cerrar Sesión
+El usuario autenticado selecciona 'Cerrar Sesión' desde cualquier módulo. El sistema invalida el token JWT, elimina el token del localStorage, registra el cierre de sesión en bitácora (usuario, fecha, hora, IP) y redirige al portal público (CU-00).
+FA-07
+Sesión Expirada
+El token JWT expira (8 horas). El sistema detecta el token inválido en cualquier petición autenticada, muestra: 'Su sesión ha expirado. Por favor inicie sesión nuevamente.' Elimina el token y redirige a /login.
+
+
+8. Postcondiciones
+El usuario autenticado posee un token JWT válido almacenado en su navegador.
+El usuario fue redirigido al módulo correspondiente según su rol.
+El evento de inicio de sesión (exitoso o fallido) quedó registrado en la bitácora de auditoría de forma inmutable.
+El sistema mantiene el estado de la sesión mediante el token JWT (stateless).
+Si la sesión fue cerrada: el token fue eliminado y el evento de logout quedó en bitácora.
+9. Reglas de Negocio
+Código
+Descripción
+RN-01
+El formulario de login no debe mostrar información sobre usuarios registrados en el sistema. Solo presenta los campos de entrada sin ningún listado de usuarios.
+RN-02
+El campo de correo electrónico debe validar formato estándar RFC 5322 en el frontend antes de enviar la solicitud al backend.
+RN-03
+Toda comunicación de credenciales debe realizarse exclusivamente mediante HTTPS. Está prohibido el envío de contraseñas en texto plano.
+RN-04
+El token JWT debe contener en su payload: userId (Long), email (String), rol (String: ADMIN/SUPERVISOR/AGENTE), nombre (String) y expiración (8 horas). Firmado con clave secreta HS256.
+RN-05
+Todo inicio y cierre de sesión debe quedar registrado en la tabla bitacora_accesos con los campos: id, usuario_id, tipo_evento (LOGIN/LOGOUT/LOGIN_FALLIDO/BLOQUEADO), fecha_hora, ip_cliente, user_agent, resultado. Esta tabla es INMUTABLE (solo INSERT, sin UPDATE ni DELETE).
+RN-06
+La redirección post-login según rol es: ADMIN → /admin/dashboard | SUPERVISOR → /supervisor/dashboard | AGENTE → /agente/casos. Si el rol no coincide con ninguno conocido, redirige a /acceso-denegado.
+RN-07
+El sistema permite máximo 5 intentos fallidos consecutivos por cuenta. Al superar el límite, la cuenta se bloquea automáticamente por 15 minutos. Cada intento fallido queda en bitácora.
+RN-08
+Las contraseñas deben almacenarse hasheadas con BCrypt (strength=12). Está prohibido almacenar contraseñas en texto plano o con hash débil (MD5, SHA1).
+
+
+
+
+
+
+
+10. Requerimientos No Funcionales
+ID
+Tipo
+Descripción
+RNF-01
+Rendimiento
+El proceso de autenticación (validación + generación de token) debe completarse en ≤ 2 segundos.
+RNF-02
+Seguridad
+Implementar protección contra ataques de fuerza bruta (rate limiting: máx. 10 req/min por IP en el endpoint /api/auth/login).
+RNF-03
+Seguridad
+El token JWT no debe almacenarse en cookies sin la flag HttpOnly. Se almacena en localStorage con limpieza al cerrar sesión.
+RNF-04
+Usabilidad
+El formulario debe tener opción de mostrar/ocultar contraseña (toggle con ícono de ojo). Soporte para autocompletado del navegador.
+RNF-05
+Accesibilidad
+Los campos deben tener labels accesibles (aria-label). El formulario debe ser navegable por teclado (Tab, Enter).
+
+11. Descripción del Flujo de Autenticación
+El siguiente esquema describe el flujo de autenticación end-to-end:
+
+Frontend (Angular)
+Backend (Spring Boot)
+1. Usuario ingresa email + password
+
+2. Angular valida formato (Reactive Forms)
+
+3. POST /api/auth/login { email, password }
+← Recibe solicitud HTTPS
+
+4. Busca usuario por email en BD
+
+5. Valida password con BCrypt.matches()
+
+6. Verifica: activo=true, intentos < 5
+
+7. Genera JWT (userId, email, rol, exp 8h)
+
+8. Registra LOGIN en bitacora_accesos
+
+9. Retorna { token, usuario } HTTP 200
+10. Almacena token en localStorage
+
+11. Redirige según rol del usuario
+
+
+
+
+
+
+13. Firmas Necesarias
+Persona
+Rol
+Firma / Fecha
+Bryan Cristales
+Desarrollador 
+
+
+Analista de Sistemas
+
+Edy Ramirez
+Responsable Institucional
+
+

@@ -1,0 +1,254 @@
+﻿SISTEMA DE QUEJAS, RECLAMOS, DENUNCIAS Y SUGERENCIAS
+CON MÓDULO DE BITÁCORAS MUNICIPALES
+CASO DE USO
+CU-03: GESTIONAR CASO
+Asignación, Revisión y Administración de Casos por Agentes y Supervisores
+Institución
+Código CU
+Versión
+Municipalidad / Institución Pública
+CU-03
+1.0
+Nombre del Caso de Uso
+Fecha
+Autor
+Estado
+Gestionar Caso del Sistema QRDS
+15/07/2026
+Bryan Cristales
+Aprobado
+
+1. Historial de Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+Bryan Cristales
+15/07/2026
+Definición Inicial
+1.0
+2. Introducción
+El presente documento describe el Caso de Uso CU-03: Gestionar Caso del Sistema de Quejas, Reclamos, Denuncias y Sugerencias (QRDS) Municipal. Este caso de uso corresponde al módulo de Administración de Casos definido en los Términos de Referencia (TDR) y constituye el puente entre el registro público de un caso (CU-02) y su seguimiento operativo (CU-04).
+Una vez que un ciudadano registra un caso y este queda en estado RECIBIDO, los usuarios internos autenticados (Administrador, Supervisor y Agente) pueden visualizar, filtrar, asignar, revisar y cambiar el estado operativo del caso. Toda acción de gestión queda registrada de forma inmutable en la bitácora de auditoría, cumpliendo el módulo de Bitácoras exigido por el TDR.
+3. Objetivo
+Permitir a los usuarios internos autenticados administrar los casos registrados en el sistema: visualizar el detalle, asignar agentes responsables, cambiar el estado operativo dentro del ciclo de vida permitido, registrar observaciones internas y garantizar la trazabilidad completa de cada acción en la bitácora de auditoría.
+
+
+
+4. Definición del Caso de Uso
+4.1 Actores
+ID
+Actor
+Descripción
+AC-01
+Administrador
+Usuario con rol ADMIN. Puede gestionar cualquier caso, asignar/reasignar agentes, anular casos y acceder a toda la bandeja.
+AC-02
+Supervisor
+Usuario con rol SUPERVISOR. Gestiona y asigna casos de su área/dependencia. Puede reasignar entre agentes de su equipo.
+AC-03
+Agente / Funcionario
+Usuario con rol AGENTE. Visualiza y gestiona únicamente los casos que le fueron asignados. Puede cambiar estados operativos y registrar observaciones.
+AC-04
+Sistema QRDS
+Sistema que valida permisos, aplica reglas de transición de estado, notifica cambios y registra eventos en bitácora.
+4.2 Precondiciones
+El usuario debe estar autenticado mediante CU-01 con un token JWT válido y rol ADMIN, SUPERVISOR o AGENTE.
+Deben existir casos registrados en la base de datos (provenientes de CU-02) con estado RECIBIDO o superior.
+La base de datos PostgreSQL debe estar operativa con las tablas: casos, usuarios, bitacora_casos, documentos_caso.
+El módulo de bitácoras debe estar activo para registrar todas las acciones de gestión.
+El backend Spring Boot y el frontend deben estar activos y comunicándose por HTTPS.
+5. Flujo Normal Básico
+Paso
+Actor
+Acción
+1
+Usuario Interno
+Inicia sesión (CU-01) y es redirigido a su bandeja de casos según rol: ADMIN → /admin/casos | SUPERVISOR → /supervisor/casos | AGENTE → /agente/casos.
+2
+Sistema
+Carga la bandeja de casos aplicando filtros por rol: ADMIN ve todos; SUPERVISOR ve los de su área; AGENTE ve solo los asignados a él. [RN-01]
+3
+Sistema
+Despliega la lista con: código de seguimiento, tipo, ciudadano (o Anónimo), área, estado, fecha de registro, agente asignado y prioridad.
+4
+Usuario Interno
+Selecciona un caso de la bandeja para ver su detalle, o aplica filtros (estado, tipo, rango de fechas, área, sin asignar). [FA-01]
+5
+Sistema
+Muestra el detalle del caso: datos del ciudadano, descripción, documentos adjuntos, historial de estados, observaciones internas y agente actual. [RN-02]
+6
+Usuario Interno
+Si el caso está RECIBIDO y sin asignar, el Supervisor/Admin selecciona un agente disponible y confirma la asignación. [RN-03] [FA-02]
+7
+Sistema
+Asigna el agente al caso, cambia el estado a EN_REVISION, notifica al agente y registra el evento en bitácora. [RN-04] [RN-05]
+8
+Agente
+Revisa el caso asignado: lee la descripción, descarga adjuntos si aplica y determina la validez del caso.
+9
+Agente
+Cambia el estado a EN_PROCESO y registra una observación interna con el plan de atención. [RN-06] [FA-03]
+10
+Sistema
+Valida la transición de estado según el ciclo de vida permitido. [RN-07] [FA-04]
+11
+Sistema
+Actualiza estado y fecha_ultima_actualizacion en BD. Envía notificación al ciudadano (si no es anónimo) indicando que su caso está en proceso. [RN-08]
+12
+Sistema
+Registra en bitácora: usuario, fecha, hora, IP, código del caso, estado anterior → estado nuevo, descripción de la acción. [RN-05]
+13
+Sistema
+Muestra confirmación: Caso actualizado correctamente y refresca el detalle con el nuevo estado.
+14
+—
+Fin del caso de uso.
+6. Flujos Alternos
+Código
+Nombre
+Descripción
+FA-01
+Filtrar / Buscar Casos
+El usuario aplica filtros en la bandeja (estado, tipo Q/R/D/S, área, fechas, código de seguimiento, sin asignar). El sistema actualiza la lista. Si no hay resultados, muestra: No se encontraron casos con los criterios indicados.
+FA-02
+Reasignar Caso
+Un Supervisor o Admin selecciona un caso ya asignado y elige un nuevo agente. El sistema actualiza agente_asignado_id, notifica al agente anterior y al nuevo, y registra REASIGNACION en bitácora. El estado no cambia automáticamente.
+FA-03
+Agregar Observación Sin Cambio de Estado
+El agente registra una observación interna sin cambiar el estado. El sistema guarda la nota, actualiza fecha_ultima_actualizacion y registra en bitácora. Las observaciones internas NO son visibles para el ciudadano.
+FA-04
+Transición de Estado Inválida
+El usuario intenta una transición no permitida (ej. RECIBIDO → CERRADO). El sistema rechaza la acción con HTTP 400 y muestra: Transición de estado no permitida. Consulte el ciclo de vida del caso. No se modifica BD ni bitácora de cambio de estado.
+FA-05
+Caso Sin Agente Disponible
+Al asignar, no hay agentes activos en el área. El sistema muestra: No hay agentes disponibles en esta área. Contacte al administrador. El caso permanece en RECIBIDO.
+FA-06
+Acceso Denegado por Rol
+Un AGENTE intenta abrir o modificar un caso no asignado a él. El sistema retorna HTTP 403 y muestra: No tiene permisos para gestionar este caso. Registra el intento en bitácora.
+FA-07
+Anular Caso (Solo Admin)
+El Administrador selecciona Anular Caso, ingresa justificación obligatoria (mín. 20 caracteres) y confirma. El sistema cambia estado a ANULADO (final), notifica si aplica y registra en bitácora con la justificación. [RN-09]
+FA-08
+Error de Conexión
+El backend no responde. El sistema muestra: Error al gestionar el caso. Verifique su conexión e intente nuevamente. No se aplica ningún cambio parcial.
+7. Postcondiciones
+El caso quedó asignado a un agente (si aplica) y/o con estado actualizado según la transición válida.
+fecha_ultima_actualizacion del caso fue actualizada.
+El evento de gestión (asignación, cambio de estado, observación, anulación) quedó registrado de forma inmutable en bitácora.
+Si hubo cambio de estado visible al ciudadano y el caso no es anónimo, se envió notificación por correo.
+El caso queda disponible para el CU-04 (Actualizar Seguimiento), CU-05 (Resolver Caso) o CU-06 (Cerrar Caso) según el estado alcanzado.
+Las observaciones internas permanecen visibles solo para usuarios autenticados con permiso sobre el caso.
+8. Reglas de Negocio
+Código
+Descripción
+RN-01
+Visibilidad por rol: ADMIN ve todos los casos; SUPERVISOR ve casos de su área_dependencia; AGENTE ve únicamente casos donde agente_asignado_id = su userId. Un AGENTE no puede ver la bandeja global ni casos sin asignar.
+RN-02
+El detalle del caso para usuarios internos incluye datos completos (ciudadano, email, teléfono, descripción, adjuntos). La vista pública (CU-00/CU-02 consulta) solo expone código, tipo, estado y fechas.
+RN-03
+Solo ADMIN y SUPERVISOR pueden asignar o reasignar agentes. El AGENTE no puede autoasignarse casos ni reasignar a otros.
+RN-04
+Al asignar por primera vez un caso en estado RECIBIDO, el sistema cambia automáticamente el estado a EN_REVISION.
+RN-05
+Toda asignación, reasignación, cambio de estado, observación o anulación debe registrarse en bitacora_casos con: usuario_id, caso_id, tipo_evento, estado_anterior, estado_nuevo, descripcion, fecha_hora, ip_cliente. Tabla INMUTABLE (solo INSERT).
+RN-06
+Los cambios de estado manuales requieren una observación/justificación mínima de 10 caracteres, excepto la asignación automática RECIBIDO → EN_REVISION.
+RN-07
+Transiciones permitidas: RECIBIDO→EN_REVISION|ANULADO; EN_REVISION→EN_PROCESO|ANULADO; EN_PROCESO→RESUELTO|EN_REVISION; RESUELTO→CERRADO|EN_PROCESO; CERRADO y ANULADO son estados finales (sin transición saliente).
+RN-08
+Notificación al ciudadano: ante cambio a EN_PROCESO, RESUELTO, CERRADO o ANULADO, si el caso NO es anónimo y tiene email, se envía correo con código, nuevo estado y mensaje institucional. Las observaciones internas nunca se incluyen en el correo.
+RN-09
+Solo el rol ADMIN puede anular un caso. La anulación exige justificación ≥ 20 caracteres y queda registrada en bitácora. Un caso ANULADO no puede reabrirse.
+RN-10
+Un caso CERRADO o ANULADO no admite nuevas observaciones ni cambios de estado. Solo consulta y descarga de adjuntos históricos (con registro en bitácora de descarga).
+9. Requerimientos No Funcionales
+ID
+Tipo
+Descripción
+RNF-01
+Rendimiento
+La bandeja de casos debe cargar en ≤ 3 segundos con hasta 500 registros paginados (20 por página por defecto).
+RNF-02
+Seguridad
+Todos los endpoints de gestión requieren JWT válido + RoleGuard. Validación de propiedad del caso en backend (no solo en frontend).
+RNF-03
+Usabilidad
+Bandeja con filtros, ordenamiento por columnas, paginación y badges de color por estado.
+RNF-04
+Auditoría
+Ninguna operación de UPDATE/DELETE sobre tablas de bitácora. Triggers o permisos de BD que bloqueen modificación.
+RNF-05
+Disponibilidad
+El módulo de gestión depende de autenticación; si el portal público está en mantenimiento, la bandeja interna puede operar de forma independiente.
+RNF-06
+Integridad
+Las transiciones de estado se validan en el servicio de dominio (CasoService), no solo en la UI, para evitar inconsistencias.
+10. Ciclo de Vida del Caso (Recordatorio Operativo)
+Estado
+Quién puede actuar
+Acción típica en CU-03
+RECIBIDO
+Admin / Supervisor
+Asignar agente → pasa a EN_REVISION
+EN_REVISION
+Agente asignado / Supervisor / Admin
+Validar caso → EN_PROCESO; o Admin → ANULADO
+EN_PROCESO
+Agente asignado / Supervisor / Admin
+Continuar gestión; derivar a CU-05 Resolver o volver a EN_REVISION
+RESUELTO
+Agente / Supervisor / Admin
+Preparar cierre (CU-06) o reabrir a EN_PROCESO
+CERRADO
+Solo consulta
+Estado final — sin gestión adicional
+ANULADO
+Solo consulta (Admin creó)
+Estado final — con justificación en bitácora
+11. Descripción de la Interfaz (Mockup Textual)
+Sección
+Contenido
+Header interno
+Logo, nombre del sistema, nombre del usuario autenticado, rol, botón Cerrar Sesión.
+Menú lateral
+Según rol: Bandeja de Casos, Mis Asignados, Reportes (Supervisor/Admin), Usuarios (Admin), Bitácoras (Admin).
+Bandeja
+Tabla paginada con columnas: Código, Tipo, Ciudadano, Área, Estado (badge), Agente, Fecha. Filtros arriba. Botón Ver detalle.
+Detalle del caso
+Panel con datos del ciudadano, descripción, adjuntos descargables, timeline de estados, lista de observaciones internas.
+Acciones
+Asignar/Reasignar (Admin/Supervisor), Cambiar Estado (select con solo transiciones válidas), Agregar Observación, Anular (solo Admin).
+Confirmación
+Modal de confirmación antes de asignar, cambiar estado o anular. Muestra estado actual → nuevo estado.
+12. Relación con Otros Casos de Uso
+CU
+Relación
+CU-01
+Precondición: el usuario debe estar autenticado para acceder a la bandeja.
+CU-02
+Provee los casos en estado RECIBIDO que ingresan a la bandeja de gestión.
+CU-04
+Continúa el seguimiento detallado y actualizaciones periódicas del caso en proceso.
+CU-05
+Resolver Caso se invoca cuando desde EN_PROCESO se emite la respuesta formal al ciudadano.
+CU-06
+Cerrar Caso archiva el caso resuelto (estado final CERRADO).
+CU-08
+Las notificaciones de cambio de estado se apoyan en el módulo de notificaciones.
+CU-11
+Los eventos de CU-03 alimentan la consulta de bitácoras de auditoría.
+13. Firmas Necesarias
+Persona
+Rol
+Firma / Fecha
+Bryan Cristales
+Desarrollador 
+
+
+Analista de Sistemas
+
+Edy Ramirez
+Responsable Institucional
+
+

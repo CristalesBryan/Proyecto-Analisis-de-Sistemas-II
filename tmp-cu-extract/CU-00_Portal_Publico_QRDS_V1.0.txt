@@ -1,0 +1,203 @@
+﻿SISTEMA DE QUEJAS, RECLAMOS, DENUNCIAS Y SUGERENCIAS
+CON MÓDULO DE BITÁCORAS MUNICIPALES
+
+
+CASO DE USO
+CU-00: PORTAL PÚBLICO DEL SISTEMA
+Acceso Público — Disponibilidad 24/7
+
+Institución
+Código CU
+Versión
+Municipalidad / Institución Pública
+CU-00
+1.0
+Nombre del Caso de Uso
+Portal Público del Sistema de Quejas, Reclamos, Denuncias y Sugerencias
+Fecha
+11/07/2026
+Autor
+Bryan Cristales
+Estado
+Aprobado
+
+1. Historial de Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+Bryan Cristales
+11/07/2026
+Definición Inicial
+1.0
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+2. Introducción
+El presente documento describe el Caso de Uso CU-00: Portal Público del Sistema de Quejas, Reclamos, Denuncias y Sugerencias (QRDS) Municipal. Este caso de uso es el punto de entrada principal para cualquier ciudadano que desee interactuar con el sistema, siendo el único módulo que debe permanecer siempre activo y accesible sin restricciones.
+El portal actúa como la fachada institucional digital de la entidad, proporcionando acceso a los módulos principales y brindando información pública relevante al ciudadano.
+3. Objetivo
+Proveer al ciudadano un punto de acceso centralizado, permanentemente disponible, desde el cual pueda:
+Conocer el sistema y su propósito institucional.
+Acceder al formulario de registro de quejas, reclamos, denuncias y sugerencias.
+Consultar el estado de su caso mediante código de seguimiento.
+Iniciar sesión para usuarios autenticados (funcionarios y administradores).
+Visualizar información de contacto y canales alternativos de atención.
+4. Definición del Caso de Uso
+4.1 Actores
+ID
+Actor
+Descripción
+AC-01
+Ciudadano
+Usuario público (anónimo) que accede al portal para registrar una queja o consultar su caso.
+AC-02
+Sistema de Quejas
+Sistema que procesa y responde las solicitudes del ciudadano.
+AC-03
+Servidor Web
+Infraestructura que mantiene el portal activo 24/7.
+AC-04
+Administrador del Sistema
+Responsable de garantizar la disponibilidad y configuración del portal.
+
+4.2 Precondiciones
+El servidor web del sistema debe estar activo y operativo (RN-01).
+El dominio/URL del portal debe estar correctamente configurado y publicado.
+La base de datos debe estar disponible para consultas de estado de caso.
+El módulo de bitácoras debe estar activo para registrar todos los accesos.
+Los certificados SSL/TLS deben estar vigentes (HTTPS obligatorio).
+5. Flujo Normal Básico
+Paso
+Actor
+Acción
+1
+Ciudadano
+Ingresa la URL del portal en su navegador web.
+2
+Sistema
+Verifica disponibilidad del servicio y carga la página principal del portal. [RN-01]
+3
+Sistema
+Despliega el portal con: encabezado institucional, menú de navegación, sección hero con mensaje de bienvenida, accesos rápidos y footer.
+4
+Ciudadano
+Navega por el contenido informativo del portal (acceso libre, sin autenticación). [RN-02]
+5
+Sistema
+Registra el acceso en la bitácora de auditoría: IP, fecha, hora, acción. [RN-03]
+6
+Ciudadano
+Selecciona una opción del portal: Registrar Queja, Consultar Estado de Caso, o Iniciar Sesión.
+7
+Sistema
+Redirige al módulo correspondiente según la opción seleccionada. [FA-01] [FA-02] [FA-03]
+8
+—
+Fin del caso de uso.
+
+6. Flujos Alternos
+Código
+Nombre
+Descripción
+FA-01
+Registrar Queja
+El ciudadano selecciona 'Registrar Queja'. El sistema redirige al formulario público CU-02 sin requerir autenticación previa.
+FA-02
+Consultar Estado de Caso
+El ciudadano selecciona 'Consultar Caso'. El sistema despliega un campo de búsqueda. El ciudadano ingresa su código de seguimiento. El sistema muestra el estado actual del caso. [RN-04]
+FA-03
+Iniciar Sesión
+El ciudadano o funcionario selecciona 'Iniciar Sesión'. El sistema redirige a la pantalla de autenticación CU-01.
+FA-04
+Portal No Disponible
+El servidor no responde. El sistema muestra página de error amigable: 'El sistema está en mantenimiento. Intente más tarde.' El sistema notifica al administrador en ≤ 5 minutos. [RN-05]
+FA-05
+Código de Caso No Encontrado
+El ciudadano ingresa un código de seguimiento inválido en FA-02. El sistema muestra: 'Código no encontrado. Verifique el número e intente nuevamente.' Regresa al paso de búsqueda.
+
+7. Postcondiciones
+El ciudadano fue redirigido exitosamente al módulo seleccionado.
+El portal permanece activo y disponible para otros usuarios concurrentes.
+El acceso al portal queda registrado en la bitácora de auditoría (inmutable).
+Si se consultó un caso, el ciudadano conoce el estado actual de su queja sin que se exponga información sensible.
+8. Reglas de Negocio
+Código
+Descripción
+RN-01
+El portal debe tener disponibilidad 24/7/365. En mantenimiento programado se mostrará página de aviso con al menos 24 horas de anticipación.
+RN-02
+El portal principal es de acceso público. No se requiere autenticación para visualizar el contenido informativo, registrar una queja o consultar estado de caso.
+RN-03
+Todo acceso al portal debe quedar registrado en la bitácora de auditoría con: IP del cliente, fecha, hora, tipo de acción y resultado. Las bitácoras son de solo lectura y no pueden ser modificadas.
+RN-04
+La consulta de estado de caso requiere únicamente el código de seguimiento (alfanumérico, 10 caracteres) asignado al momento del registro. No se expone información sensible del caso a usuarios no autenticados.
+RN-05
+Ante caída del portal, el sistema debe notificar al administrador automáticamente por correo electrónico en un máximo de 5 minutos.
+RN-06
+El portal debe ser responsive y compatible con Chrome, Firefox, Edge y Safari (últimas 2 versiones). Tiempo máximo de carga: 3 segundos.
+
+9. Requerimientos No Funcionales
+ID
+Tipo
+Descripción
+RNF-01
+Rendimiento
+Tiempo de carga del portal ≤ 3 segundos en conexión estándar de 10 Mbps.
+RNF-02
+Disponibilidad
+Disponibilidad mínima del 99.5% mensual (≤ 3.6 horas de caída al mes).
+RNF-03
+Usabilidad
+Diseño responsive, mobile-first. Compatible con dispositivos móviles, tablets y escritorios.
+RNF-04
+Accesibilidad
+Cumplir estándares WCAG 2.1 nivel AA para accesibilidad web.
+RNF-05
+Seguridad
+El portal debe usar HTTPS. No se exponen datos sensibles en la vista pública.
+RNF-06
+Mantenibilidad
+El código debe estar documentado y seguir estándares Angular 17+ para facilitar mantenimiento.
+
+10. Descripción de la Interfaz (Mockup Textual)
+El portal debe contener los siguientes bloques visuales:
+Sección
+Contenido
+Header
+Logo institucional, nombre de la municipalidad, menú de navegación (Inicio, Registrar Queja, Consultar Caso, Iniciar Sesión).
+Hero Section
+Imagen institucional de fondo, título principal, subtítulo descriptivo, botón primario 'Registrar Queja' y botón secundario 'Consultar Mi Caso'.
+Accesos Rápidos
+3 tarjetas: 1) Registrar Queja/Reclamo/Denuncia/Sugerencia, 2) Consultar Estado de Mi Caso, 3) Iniciar Sesión (funcionarios).
+Información
+Qué es el sistema, tipos de casos que puede registrar, cómo funciona el proceso.
+Contacto
+Dirección, teléfono, correo, horarios de atención presencial.
+Footer
+Derechos reservados, versión del sistema, enlace a política de privacidad.
+
+11. Firmas Necesarias
+Persona
+Rol
+Firma / Fecha
+Bryan Cristales
+Desarrollador 
+
+
+Analista de Sistemas
+
+Edy Ramirez
+Responsable Institucional
+
+

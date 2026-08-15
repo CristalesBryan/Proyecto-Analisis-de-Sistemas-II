@@ -1,17 +1,16 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import { consultarCasoPublico } from '../services/api'
+import {
+  consultarCasoPublico,
+  codigoSeguimientoValido,
+  listarSeguimientosPublicos,
+  type CasoPublico,
+  type SeguimientoCaso,
+} from '../services/api'
 
 type ConsultaCasoModalProps = {
   open: boolean
   onClose: () => void
-}
-
-type CasoPublico = {
-  codigoSeguimiento: string
-  tipo: string
-  estado: string
-  fechaRegistro: string
 }
 
 export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
@@ -19,6 +18,7 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultado, setResultado] = useState<CasoPublico | null>(null)
+  const [seguimientos, setSeguimientos] = useState<SeguimientoCaso[]>([])
 
   if (!open) return null
 
@@ -27,9 +27,10 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
     const valor = codigo.trim().toUpperCase()
     setError(null)
     setResultado(null)
+    setSeguimientos([])
 
-    if (!/^[A-Z0-9]{10}$/.test(valor)) {
-      setError('El código debe ser alfanumérico de exactamente 10 caracteres.')
+    if (!codigoSeguimientoValido(valor)) {
+      setError('Ingrese un código válido. Ejemplo: Q-2026-00001.')
       return
     }
 
@@ -37,6 +38,13 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
     try {
       const data = await consultarCasoPublico(valor)
       setResultado(data)
+      try {
+        const linea = await listarSeguimientosPublicos(valor)
+        setSeguimientos(linea.seguimientos)
+        setResultado({ ...data, avancePorcentaje: linea.avancePorcentaje })
+      } catch {
+        setSeguimientos([])
+      }
     } catch {
       setError('Código no encontrado. Verifique el número e intente nuevamente.')
     } finally {
@@ -48,6 +56,7 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
     setCodigo('')
     setError(null)
     setResultado(null)
+    setSeguimientos([])
     onClose()
   }
 
@@ -58,14 +67,14 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
       aria-modal="true"
       aria-labelledby="consulta-titulo"
     >
-      <div className="liquid-glass w-full max-w-md rounded-xl border border-white/20 p-6">
+      <div className="liquid-glass w-full max-w-lg rounded-xl border border-white/20 p-6">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="consulta-titulo" className="text-xl font-medium">
               Consultar Estado de Caso
             </h2>
             <p className="mt-1 text-sm text-gray-300">
-              Ingresa tu código de seguimiento (10 caracteres).
+              Ingresa tu código de seguimiento (ej. Q-2026-00001).
             </p>
           </div>
           <button
@@ -85,11 +94,12 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
           <input
             id="codigo"
             value={codigo}
-            onChange={(e) => setCodigo(e.target.value.toUpperCase())}
-            maxLength={10}
-            placeholder="ABC1234567"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setCodigo(e.target.value.toUpperCase())}
+            maxLength={20}
+            placeholder="Q-2026-00001"
             className="w-full rounded-lg border border-white/20 bg-black/40 px-4 py-3 text-white outline-none ring-white/30 placeholder:text-gray-500 focus:ring-2"
             autoComplete="off"
+            aria-label="Código de seguimiento"
           />
 
           {error && <p className="text-sm text-red-300">{error}</p>}
@@ -108,6 +118,38 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
               <p className="mt-1">
                 <span className="text-gray-300">Registrado:</span> {resultado.fechaRegistro}
               </p>
+              {resultado.ultimaActualizacion && (
+                <p className="mt-1">
+                  <span className="text-gray-300">Última actualización:</span>{' '}
+                  {resultado.ultimaActualizacion}
+                </p>
+              )}
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-gray-400">
+                  <span>Avance</span>
+                  <span>{resultado.avancePorcentaje || 0}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-white"
+                    style={{ width: `${resultado.avancePorcentaje || 0}%` }}
+                  />
+                </div>
+              </div>
+              {seguimientos.length > 0 && (
+                <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto border-t border-white/10 pt-3">
+                  {seguimientos.map((item) => (
+                    <li key={item.id}>
+                      <p className="font-medium text-white">{item.titulo}</p>
+                      <p className="text-xs text-gray-400">
+                        {item.creadoEn.slice(0, 10)}
+                        {item.porcentajeAvance !== null ? ` · ${item.porcentajeAvance}%` : ''}
+                      </p>
+                      <p className="mt-1 text-gray-300">{item.descripcion}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

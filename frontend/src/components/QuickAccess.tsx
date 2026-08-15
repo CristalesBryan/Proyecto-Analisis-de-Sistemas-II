@@ -13,7 +13,7 @@ const accesos = [
   {
     title: 'Consultar Estado de Mi Caso',
     description:
-      'Ingresa tu código de seguimiento de 10 caracteres y conoce el estado actual de tu caso.',
+      'Ingresa tu código de seguimiento (ej. Q-2026-00001) y conoce el estado actual de tu caso.',
     href: '#consultar',
     icon: Search,
     cta: 'Consultar caso',

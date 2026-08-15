@@ -18,7 +18,7 @@ const tipos = [
 ]
 
 const pasos = [
-  'Registra tu caso y obtén un código de seguimiento de 10 caracteres.',
+  'Registra tu caso y obtén un código de seguimiento único (ej. Q-2026-00001).',
   'El sistema asigna y gestiona el caso según plazos institucionales.',
   'Consulta el estado en cualquier momento con tu código.',
   'Recibe la resolución y el cierre del caso por los canales configurados.',
