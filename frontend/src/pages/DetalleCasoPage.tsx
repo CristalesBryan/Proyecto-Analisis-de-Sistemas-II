@@ -1,27 +1,36 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Download } from 'lucide-react'
-import { BadgeEstado, BadgePlazo, InternalLayout } from '../components/InternalLayout'
+import { ArrowLeft, Download, Upload } from 'lucide-react'
+import { BadgeEstado, BadgePlazo, InternalLayout, etiquetaEstado } from '../components/InternalLayout'
 import { SeguimientoCaso } from '../components/SeguimientoCaso'
 import {
+  adjuntarDocumentosInterno,
   agregarObservacionCaso,
   anularCaso,
   asignarCaso,
   cambiarEstadoCaso,
+  cerrarCaso,
   descargarDocumentoCaso,
   escalarCaso,
   listarAgentes,
+  listarDocumentosCaso,
+  modificarCaso,
+  obtenerAreas,
   obtenerCaso,
   reasignarCaso,
   registrarProrroga,
   type AgenteOpcion,
   type ApiError,
+  type AreaDependencia,
   type CasoDetalle,
 } from '../services/api'
 import { destinosPorRol, getUser } from '../services/auth'
+import { formatFecha, formatFechaHora } from '../lib/fechas'
 
 const INPUT =
-  'w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/30'
+  'w-full min-w-0 max-w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/30'
+const AREA = `${INPUT} resize-y break-words`
+const SELECT = `${INPUT} bg-black pr-8`
 
 type Pestana = 'resumen' | 'seguimiento' | 'documentos' | 'historial'
 
@@ -42,19 +51,36 @@ export function DetalleCasoPage() {
   const [observacionEstado, setObservacionEstado] = useState('')
   const [nota, setNota] = useState('')
   const [justificacion, setJustificacion] = useState('')
+  const [observacionCierre, setObservacionCierre] = useState('')
   const [diasProrroga, setDiasProrroga] = useState('3')
   const [justificacionProrroga, setJustificacionProrroga] = useState('')
   const [motivoEscalar, setMotivoEscalar] = useState('')
   const [confirmar, setConfirmar] = useState<
-    'asignar' | 'reasignar' | 'estado' | 'anular' | 'prorroga' | 'escalar' | null
+    'asignar' | 'reasignar' | 'estado' | 'anular' | 'cerrar' | 'prorroga' | 'escalar' | null
   >(null)
   const [enviando, setEnviando] = useState(false)
+  const [subiendoDoc, setSubiendoDoc] = useState(false)
+  const [avisoDocs, setAvisoDocs] = useState('')
+  const [editando, setEditando] = useState(false)
+  const [nombreEdit, setNombreEdit] = useState('')
+  const [emailEdit, setEmailEdit] = useState('')
+  const [telefonoEdit, setTelefonoEdit] = useState('')
+  const [areaEdit, setAreaEdit] = useState('')
+  const [prioridadEdit, setPrioridadEdit] = useState('MEDIA')
+  const [descripcionEdit, setDescripcionEdit] = useState('')
+  const [denunciadoEdit, setDenunciadoEdit] = useState('')
+  const [motivoEdit, setMotivoEdit] = useState('')
+  const [areas, setAreas] = useState<AreaDependencia[]>([])
   const [pestana, setPestana] = useState<Pestana>(
     location.pathname.endsWith('/seguimiento') ? 'seguimiento' : 'resumen',
   )
 
   const puedeAsignar = usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR'
   const puedeAnular = usuario?.rol === 'ADMIN'
+  const puedeCerrar =
+    usuario?.permisos?.includes('CASOS_CERRAR') ||
+    usuario?.rol === 'ADMIN' ||
+    usuario?.rol === 'SUPERVISOR'
   const puedePlazo = usuario?.rol === 'ADMIN' || usuario?.rol === 'SUPERVISOR'
   const bandeja = usuario ? destinosPorRol[usuario.rol] : '/'
   const finalizado = caso?.estado === 'CERRADO' || caso?.estado === 'ANULADO'
@@ -69,6 +95,15 @@ export function DetalleCasoPage() {
     try {
       const detalle = await obtenerCaso(casoId)
       setCaso(detalle)
+      setNombreEdit(detalle.nombreCiudadano || '')
+      setEmailEdit(detalle.emailCiudadano || '')
+      setTelefonoEdit(detalle.telefono || '')
+      setAreaEdit(detalle.area)
+      setPrioridadEdit(detalle.prioridad || 'MEDIA')
+      setDescripcionEdit(detalle.descripcion)
+      setDenunciadoEdit(detalle.denunciado || '')
+      setEditando(false)
+      setMotivoEdit('')
       if (!detalle.transicionesPermitidas.includes(nuevoEstado)) {
         setNuevoEstado(detalle.transicionesPermitidas[0] || '')
       }
@@ -99,6 +134,10 @@ export function DetalleCasoPage() {
     void cargar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [casoId])
+
+  useEffect(() => {
+    void obtenerAreas().then(setAreas).catch(() => setAreas([]))
+  }, [])
 
   useEffect(() => {
     if (location.pathname.endsWith('/seguimiento')) {
@@ -134,6 +173,9 @@ export function DetalleCasoPage() {
       } else if (confirmar === 'escalar') {
         respuesta = await escalarCaso(caso.id, motivoEscalar)
         setMotivoEscalar('')
+      } else if (confirmar === 'cerrar') {
+        respuesta = await cerrarCaso(caso.id, observacionCierre)
+        setObservacionCierre('')
       } else {
         respuesta = await anularCaso(caso.id, justificacion)
       }
@@ -173,6 +215,64 @@ export function DetalleCasoPage() {
     }
   }
 
+  async function guardarModificacion() {
+    if (!caso) return
+    setEnviando(true)
+    setError('')
+    setExito('')
+    try {
+      const respuesta = await modificarCaso(caso.id, {
+        nombreCiudadano: caso.esAnonimo ? undefined : nombreEdit,
+        email: emailEdit,
+        telefono: telefonoEdit,
+        areaDependencia: usuario?.rol === 'AGENTE' ? undefined : areaEdit,
+        descripcion: descripcionEdit,
+        denunciado: denunciadoEdit,
+        prioridad: prioridadEdit,
+        motivo: motivoEdit,
+      })
+      setCaso(respuesta.caso)
+      setExito(respuesta.mensaje)
+      setEditando(false)
+      setMotivoEdit('')
+    } catch (err) {
+      const apiError = err as ApiError
+      setError(apiError.message)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  async function refrescarDocumentos() {
+    const lista = await listarDocumentosCaso(casoId)
+    setCaso((actual) => (actual ? { ...actual, documentos: lista } : actual))
+  }
+
+  async function subirDocumentos(lista: FileList | null) {
+    if (!caso || !lista || lista.length === 0 || finalizado) return
+    setSubiendoDoc(true)
+    setAvisoDocs('')
+    setError('')
+    try {
+      const respuesta = await adjuntarDocumentosInterno(caso.id, Array.from(lista))
+      await refrescarDocumentos()
+      if (respuesta.rechazados.length > 0) {
+        setAvisoDocs(
+          `Algunos archivos no se adjuntaron: ${respuesta.rechazados
+            .map((item) => `${item.nombre} (${item.motivo})`)
+            .join(', ')}.`,
+        )
+      } else if (respuesta.archivosSubidos.length > 0) {
+        setExito('Documento cargado y asociado al caso.')
+      }
+    } catch (err) {
+      const apiError = err as ApiError
+      setError(apiError.message || 'No fue posible almacenar el documento.')
+    } finally {
+      setSubiendoDoc(false)
+    }
+  }
+
   const pestanas: { id: Pestana; label: string }[] = [
     { id: 'resumen', label: 'Resumen' },
     { id: 'seguimiento', label: 'Seguimiento' },
@@ -208,8 +308,8 @@ export function DetalleCasoPage() {
       )}
 
       {caso && (
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          <div className="space-y-6">
+        <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)]">
+          <div className="min-w-0 space-y-6">
             <div className="liquid-glass rounded-xl border border-white/20 p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -237,8 +337,8 @@ export function DetalleCasoPage() {
                   role="status"
                 >
                   {caso.plazo?.vencido
-                    ? `El plazo de respuesta venció el ${caso.fechaLimiteRespuesta}. Escale o registre una prórroga.`
-                    : `Quedan ${caso.plazo?.diasRestantes} día(s) hábil(es). Fecha límite: ${caso.fechaLimiteRespuesta}.`}
+                    ? `El plazo de respuesta venció el ${formatFecha(caso.fechaLimiteRespuesta)}. Escale o registre una prórroga.`
+                    : `Quedan ${caso.plazo?.diasRestantes} día(s) hábil(es). Fecha límite: ${formatFecha(caso.fechaLimiteRespuesta)}.`}
                 </div>
               )}
 
@@ -275,44 +375,149 @@ export function DetalleCasoPage() {
               <>
                 <div className="liquid-glass rounded-xl border border-white/20 p-6">
                   <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Ciudadano</dt>
-                      <dd>{caso.esAnonimo ? 'Anónimo' : caso.nombreCiudadano}</dd>
+                      <dd className="break-words">{caso.esAnonimo ? 'Anónimo' : caso.nombreCiudadano}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Correo</dt>
-                      <dd>{caso.emailCiudadano || '—'}</dd>
+                      <dd className="break-all">{caso.emailCiudadano || '—'}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Teléfono</dt>
                       <dd>{caso.telefono || '—'}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Agente</dt>
-                      <dd>{caso.agenteNombre}</dd>
+                      <dd className="break-words">{caso.agenteNombre}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Registro</dt>
-                      <dd>{caso.fechaRegistro}</dd>
+                      <dd>{formatFechaHora(caso.fechaRegistro)}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <dt className="text-gray-400">Fecha límite</dt>
-                      <dd>{caso.fechaLimiteRespuesta || '—'}</dd>
+                      <dd>{formatFecha(caso.fechaLimiteRespuesta)}</dd>
                     </div>
-                    <div>
+                    <div className="min-w-0 sm:col-span-2">
                       <dt className="text-gray-400">Última actualización</dt>
-                      <dd>{caso.fechaUltimaActualizacion}</dd>
+                      <dd>{formatFechaHora(caso.fechaUltimaActualizacion)}</dd>
                     </div>
                     {caso.fechaProrroga && (
-                      <div>
+                      <div className="min-w-0">
                         <dt className="text-gray-400">Última prórroga</dt>
-                        <dd>{caso.fechaProrroga.slice(0, 10)}</dd>
+                        <dd>{formatFecha(caso.fechaProrroga)}</dd>
                       </div>
                     )}
                   </dl>
-                  <p className="mt-5 text-sm leading-relaxed text-gray-300">{caso.descripcion}</p>
+                  <p className="mt-5 max-w-full overflow-hidden whitespace-pre-wrap break-all text-sm leading-relaxed text-gray-300">
+                    {caso.descripcion}
+                  </p>
                   {caso.denunciado && (
                     <p className="mt-3 text-sm text-gray-300">Denunciado: {caso.denunciado}</p>
+                  )}
+                  {!finalizado && (
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      {!editando ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditando(true)}
+                          className="rounded-lg border border-white/20 px-4 py-2 text-sm hover:bg-white hover:text-black"
+                        >
+                          Modificar
+                        </button>
+                      ) : (
+                        <form
+                          className="space-y-3"
+                          onSubmit={(event) => {
+                            event.preventDefault()
+                            void guardarModificacion()
+                          }}
+                        >
+                          <h2 className="text-lg font-medium">Modificar datos del caso</h2>
+                          {!caso.esAnonimo && (
+                            <input
+                              className={INPUT}
+                              value={nombreEdit}
+                              onChange={(event) => setNombreEdit(event.target.value)}
+                              placeholder="Nombre del ciudadano"
+                            />
+                          )}
+                          <input
+                            className={INPUT}
+                            value={emailEdit}
+                            onChange={(event) => setEmailEdit(event.target.value)}
+                            placeholder="Correo"
+                          />
+                          <input
+                            className={INPUT}
+                            value={telefonoEdit}
+                            onChange={(event) => setTelefonoEdit(event.target.value)}
+                            placeholder="Teléfono"
+                          />
+                          {usuario?.rol !== 'AGENTE' && (
+                            <select
+                              className={SELECT}
+                              value={areaEdit}
+                              onChange={(event) => setAreaEdit(event.target.value)}
+                              aria-label="Área"
+                            >
+                              {areas.map((area) => (
+                                <option key={area.codigo} value={area.codigo}>
+                                  {area.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <select
+                            className={SELECT}
+                            value={prioridadEdit}
+                            onChange={(event) => setPrioridadEdit(event.target.value)}
+                            aria-label="Prioridad"
+                          >
+                            <option value="BAJA">BAJA</option>
+                            <option value="MEDIA">MEDIA</option>
+                            <option value="ALTA">ALTA</option>
+                          </select>
+                          <textarea
+                            className={AREA}
+                            rows={4}
+                            value={descripcionEdit}
+                            onChange={(event) => setDescripcionEdit(event.target.value)}
+                            placeholder="Descripción (50 a 2000 caracteres)"
+                          />
+                          <input
+                            className={INPUT}
+                            value={denunciadoEdit}
+                            onChange={(event) => setDenunciadoEdit(event.target.value)}
+                            placeholder="Denunciado (opcional)"
+                          />
+                          <textarea
+                            className={AREA}
+                            rows={2}
+                            value={motivoEdit}
+                            onChange={(event) => setMotivoEdit(event.target.value)}
+                            placeholder="Motivo de la modificación"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="submit"
+                              disabled={enviando || motivoEdit.trim().length < 10}
+                              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-50"
+                            >
+                              {enviando ? 'Guardando…' : 'Confirmar modificación'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditando(false)}
+                              className="rounded-lg border border-white/20 px-4 py-2 text-sm hover:bg-white hover:text-black"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -324,9 +529,9 @@ export function DetalleCasoPage() {
                     <ul className="mb-4 space-y-3 text-sm">
                       {caso.observaciones.map((item) => (
                         <li key={item.id} className="rounded-lg border border-white/10 p-3">
-                          <p>{item.texto}</p>
+                          <p className="max-w-full overflow-hidden whitespace-pre-wrap break-words">{item.texto}</p>
                           <p className="mt-1 text-xs text-gray-400">
-                            {item.usuarioNombre} · {item.creadoEn.slice(0, 16).replace('T', ' ')}
+                            {item.usuarioNombre} · {formatFechaHora(item.creadoEn)}
                           </p>
                         </li>
                       ))}
@@ -335,11 +540,11 @@ export function DetalleCasoPage() {
                   {!finalizado && (
                     <div className="space-y-3">
                       <textarea
-                        className={INPUT}
+                        className={AREA}
                         rows={3}
                         value={nota}
                         onChange={(event) => setNota(event.target.value)}
-                        placeholder="Observación interna (no visible para el ciudadano)"
+                        placeholder="Observación interna"
                       />
                       <button
                         type="button"
@@ -370,13 +575,41 @@ export function DetalleCasoPage() {
             {pestana === 'documentos' && (
               <div className="liquid-glass rounded-xl border border-white/20 p-6">
                 <h2 className="mb-4 text-lg font-medium">Documentos</h2>
+                {!finalizado && (
+                  <label className="mb-5 flex cursor-pointer flex-col items-center rounded-xl border border-dashed border-white/20 px-4 py-6 text-center transition-colors hover:border-white/40">
+                    <Upload className="mb-2 h-5 w-5" aria-hidden="true" />
+                    <span className="text-sm text-gray-300">
+                      {subiendoDoc
+                        ? 'Cargando documento…'
+                        : 'PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos'}
+                    </span>
+                    <input
+                      type="file"
+                      className="sr-only"
+                      multiple
+                      disabled={subiendoDoc}
+                      accept=".pdf,.jpg,.jpeg,.png,.docx,application/pdf,image/jpeg,image/png,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={(event) => {
+                        void subirDocumentos(event.target.files)
+                        event.target.value = ''
+                      }}
+                    />
+                  </label>
+                )}
+                {avisoDocs && (
+                  <p className="mb-4 rounded-lg border border-amber-300/30 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
+                    {avisoDocs}
+                  </p>
+                )}
                 {caso.documentos.length === 0 ? (
                   <p className="text-sm text-gray-400">Sin adjuntos.</p>
                 ) : (
                   <ul className="space-y-2">
                     {caso.documentos.map((doc) => (
-                      <li key={doc.id} className="flex items-center justify-between text-sm">
-                        <span>{doc.nombreArchivo}</span>
+                      <li key={doc.id} className="flex min-w-0 items-center justify-between gap-3 text-sm">
+                        <span className="min-w-0 truncate" title={doc.nombreArchivo}>
+                          {doc.nombreArchivo}
+                        </span>
                         <button
                           type="button"
                           className="inline-flex items-center gap-1 text-gray-300 hover:text-white"
@@ -407,9 +640,9 @@ export function DetalleCasoPage() {
                         {evento.estadoNuevo ? ` · ${evento.estadoNuevo}` : ''}
                       </p>
                       <p className="text-gray-400">
-                        {evento.usuarioNombre} · {evento.fechaHora.slice(0, 16).replace('T', ' ')}
+                        {evento.usuarioNombre} · {formatFechaHora(evento.fechaHora)}
                       </p>
-                      <p className="text-gray-300">{evento.descripcion}</p>
+                      <p className="whitespace-pre-wrap break-words text-gray-300">{evento.descripcion}</p>
                     </li>
                   ))}
                 </ol>
@@ -417,7 +650,17 @@ export function DetalleCasoPage() {
             )}
           </div>
 
-          <aside className="space-y-6">
+          <aside className="min-w-0 space-y-6">
+            {caso.estado === 'CERRADO' && (
+              <div className="liquid-glass rounded-xl border border-white/20 p-6">
+                <h2 className="mb-2 text-lg font-medium">Expediente cerrado</h2>
+                <p className="text-sm leading-relaxed text-gray-400">
+                  El caso quedó archivado. La información y el historial se conservan para consulta;
+                  no admite modificaciones ni nuevos adjuntos.
+                </p>
+              </div>
+            )}
+
             {abiertoSeguimiento && (
               <div className="liquid-glass rounded-xl border border-white/20 p-6">
                 <h2 className="mb-2 text-lg font-medium">Resolver caso</h2>
@@ -449,11 +692,11 @@ export function DetalleCasoPage() {
                     />
                   </label>
                   <textarea
-                    className={INPUT}
+                    className={AREA}
                     rows={3}
                     value={justificacionProrroga}
                     onChange={(event) => setJustificacionProrroga(event.target.value)}
-                    placeholder="Justificación de prórroga (mín. 20 caracteres)"
+                    placeholder="Justificación de prórroga"
                   />
                   <button
                     type="button"
@@ -463,11 +706,11 @@ export function DetalleCasoPage() {
                     Registrar prórroga
                   </button>
                   <textarea
-                    className={INPUT}
+                    className={AREA}
                     rows={3}
                     value={motivoEscalar}
                     onChange={(event) => setMotivoEscalar(event.target.value)}
-                    placeholder="Motivo de escalamiento (mín. 10 caracteres)"
+                    placeholder="Motivo de escalamiento"
                   />
                   <button
                     type="button"
@@ -492,7 +735,7 @@ export function DetalleCasoPage() {
                 ) : (
                   <div className="space-y-3">
                     <select
-                      className={`${INPUT} bg-black`}
+                      className={SELECT}
                       value={agenteId}
                       onChange={(event) => setAgenteId(event.target.value)}
                     >
@@ -505,16 +748,16 @@ export function DetalleCasoPage() {
                     {caso.agenteAsignadoId ? (
                       <>
                         <textarea
-                          className={INPUT}
+                          className={AREA}
                           rows={3}
                           value={motivo}
                           onChange={(event) => setMotivo(event.target.value)}
-                          placeholder="Motivo de reasignación (mín. 10 caracteres)"
+                          placeholder="Motivo de reasignación"
                         />
                         <button
                           type="button"
                           onClick={() => setConfirmar('reasignar')}
-                          className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                          className="w-full rounded-lg bg-white px-4 py-2.5 text-sm font-medium leading-snug text-black hover:bg-gray-100"
                         >
                           Reasignar
                         </button>
@@ -523,7 +766,7 @@ export function DetalleCasoPage() {
                       <button
                         type="button"
                         onClick={() => setConfirmar('asignar')}
-                        className="w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-100"
+                        className="w-full whitespace-normal rounded-lg bg-white px-4 py-2.5 text-sm font-medium leading-snug text-black hover:bg-gray-100"
                       >
                         Asignar y pasar a revisión
                       </button>
@@ -538,24 +781,25 @@ export function DetalleCasoPage() {
                 <h2 className="mb-4 text-lg font-medium">Cambiar estado</h2>
                 <div className="space-y-3">
                   <select
-                    className={`${INPUT} bg-black`}
+                    className={SELECT}
                     value={nuevoEstado}
                     onChange={(event) => setNuevoEstado(event.target.value)}
+                    aria-label="Nuevo estado"
                   >
                     {caso.transicionesPermitidas
                       .filter((estado) => estado !== 'ANULADO')
                       .map((estado) => (
                         <option key={estado} value={estado}>
-                          {estado.split('_').join(' ')}
+                          {etiquetaEstado(estado)}
                         </option>
                       ))}
                   </select>
                   <textarea
-                    className={INPUT}
-                    rows={3}
+                    className={AREA}
+                    rows={4}
                     value={observacionEstado}
                     onChange={(event) => setObservacionEstado(event.target.value)}
-                    placeholder="Observación / justificación (mín. 10 caracteres)"
+                    placeholder="Observación de la transición"
                   />
                   <button
                     type="button"
@@ -568,15 +812,39 @@ export function DetalleCasoPage() {
               </div>
             )}
 
+            {puedeCerrar && caso.estado === 'RESUELTO' && (
+              <div className="liquid-glass rounded-xl border border-white/20 p-6">
+                <h2 className="mb-2 text-lg font-medium">Cerrar caso</h2>
+                <p className="mb-3 text-sm leading-relaxed text-gray-400">
+                  El cierre archiva el expediente resuelto. Documente la operación antes de confirmar.
+                </p>
+                <textarea
+                  className={AREA}
+                  rows={3}
+                  value={observacionCierre}
+                  onChange={(event) => setObservacionCierre(event.target.value)}
+                  placeholder="Observación de cierre"
+                />
+                <button
+                  type="button"
+                  onClick={() => setConfirmar('cerrar')}
+                  disabled={observacionCierre.trim().length < 20}
+                  className="mt-3 w-full rounded-lg bg-white px-4 py-2 text-sm font-medium text-black hover:bg-gray-100 disabled:opacity-50"
+                >
+                  Cerrar caso
+                </button>
+              </div>
+            )}
+
             {puedeAnular && !finalizado && caso.transicionesPermitidas.includes('ANULADO') && (
               <div className="liquid-glass rounded-xl border border-white/20 p-6">
                 <h2 className="mb-4 text-lg font-medium">Anular caso</h2>
                 <textarea
-                  className={INPUT}
+                  className={AREA}
                   rows={3}
                   value={justificacion}
                   onChange={(event) => setJustificacion(event.target.value)}
-                  placeholder="Justificación obligatoria (mín. 20 caracteres)"
+                  placeholder="Justificación de anulación"
                 />
                 <button
                   type="button"
@@ -600,8 +868,10 @@ export function DetalleCasoPage() {
                 `Asignar ${caso.codigoSeguimiento} y cambiar RECIBIDO → EN_REVISION.`}
               {confirmar === 'reasignar' && `Reasignar ${caso.codigoSeguimiento} a otro agente. El estado no cambia.`}
               {confirmar === 'estado' &&
-                `${caso.codigoSeguimiento}: ${caso.estado} → ${nuevoEstado}.`}
+                `${caso.codigoSeguimiento}: ${etiquetaEstado(caso.estado)} → ${etiquetaEstado(nuevoEstado)}.`}
               {confirmar === 'anular' && `${caso.codigoSeguimiento} pasará a ANULADO. Esta acción es final.`}
+              {confirmar === 'cerrar' &&
+                `${caso.codigoSeguimiento} pasará de RESUELTO a CERRADO. El historial se conserva y no podrá modificarse.`}
               {confirmar === 'prorroga' &&
                 `Prorrogar ${caso.codigoSeguimiento} ${diasProrroga} día(s) hábil(es).`}
               {confirmar === 'escalar' && `Escalar ${caso.codigoSeguimiento} y marcar prioridad ALTA.`}

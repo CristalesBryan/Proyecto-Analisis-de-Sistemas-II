@@ -10,6 +10,7 @@ import {
   type TipoSeguimiento,
 } from '../services/api'
 import { getUser } from '../services/auth'
+import { formatFechaHora } from '../lib/fechas'
 
 const INPUT =
   'w-full rounded-lg border border-white/20 bg-black/40 px-3 py-2 text-sm text-white outline-none focus:ring-2 focus:ring-white/30'
@@ -148,10 +149,12 @@ export function SeguimientoCaso({ caso, onCasoActualizado, onError, onExito }: P
                 )}
                 {item.notificado && <span className="text-xs text-gray-500">Notificado</span>}
               </div>
-              <h3 className="text-base font-medium">{item.titulo}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-gray-300">{item.descripcion}</p>
+              <h3 className="break-words text-base font-medium">{item.titulo}</h3>
+              <p className="mt-1 whitespace-pre-wrap break-all text-sm leading-relaxed text-gray-300">
+                {item.descripcion}
+              </p>
               <p className="mt-2 text-xs text-gray-500">
-                {item.usuarioNombre || 'Agente'} · {item.creadoEn.slice(0, 16).replace('T', ' ')}
+                {item.usuarioNombre || 'Agente'} · {formatFechaHora(item.creadoEn)}
                 {item.seguimientoPadreId ? ` · corrige #${item.seguimientoPadreId}` : ''}
               </p>
               {item.adjunto && (

@@ -1,0 +1,233 @@
+﻿[
+    {
+        "Id":  "PC-01",
+        "Flujo":  "Precondiciones",
+        "Paso":  "Servidor web y API activos",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 body={\"estado\":\"UP\",\"mensaje\":\"Portal pÃºblico disponible.\"}"
+    },
+    {
+        "Id":  "PC-02",
+        "Flujo":  "Precondiciones",
+        "Paso":  "Portal publico responde en :5173",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 title match=False"
+    },
+    {
+        "Id":  "PC-03",
+        "Flujo":  "Precondiciones",
+        "Paso":  "Base de datos operativa (API UP implica JPA/H2)",
+        "Resultado":  "PASS",
+        "Detalle":  "H2 file ./data/qrdsdb conectada por el backend"
+    },
+    {
+        "Id":  "PC-04",
+        "Flujo":  "Precondiciones",
+        "Paso":  "HTTPS en el entorno de prueba",
+        "Resultado":  "FAIL",
+        "Detalle":  "El entorno local sirve HTTP (5173/8080), no HTTPS. RNF-01 no aplica en desarrollo local."
+    },
+    {
+        "Id":  "FN-01",
+        "Flujo":  "Flujo normal",
+        "Paso":  "Pagina principal sin autenticacion con 3 opciones",
+        "Resultado":  "PASS",
+        "Detalle":  "Navbar/Hero/QuickAccess contienen Registrar, Consultar e Iniciar Sesion"
+    },
+    {
+        "Id":  "FN-02",
+        "Flujo":  "Flujo normal",
+        "Paso":  "Contenido informativo: hero, info, contacto, footer",
+        "Resultado":  "PASS",
+        "Detalle":  "InfoSection + ContactSection + Footer presentes"
+    },
+    {
+        "Id":  "FN-03",
+        "Flujo":  "Flujo normal",
+        "Paso":  "Carga del portal no exige login",
+        "Resultado":  "PASS",
+        "Detalle":  "PublicPortal solo consulta estado y registra acceso publico"
+    },
+    {
+        "Id":  "FA01-01",
+        "Flujo":  "FA01 Registrar",
+        "Paso":  "Redirige a formulario publico CU-03 sin autenticacion",
+        "Resultado":  "PASS",
+        "Detalle":  "Ruta /registro-caso HTTP 200; formulario de tipo QRDS en RegistroCasoPage"
+    },
+    {
+        "Id":  "FA02-01",
+        "Flujo":  "FA02 Consultar",
+        "Paso":  "Consulta de caso existente muestra solo datos publicos",
+        "Resultado":  "FAIL",
+        "Detalle":  "HTTP 200 body={\"codigoSeguimiento\":\"Q-2026-00001\",\"tipoCaso\":\"Q\",\"tipo\":\"Queja\",\"estado\":\"EN_PROCESO\",\"fechaRegistro\":\"2026-08-01T14:00:00Z\",\"ultimaActualizacion\":\"2026-08-10T16:30:00Z\",\"avancePorcentaje\":40,\"seguimientos\":[{\"id\":1,\"tipo\":\"PUBLICA\",\"titulo\":\"Caso recibido y en proceso\",\"descri"
+    },
+    {
+        "Id":  "FA02-02",
+        "Flujo":  "FA02 Consultar",
+        "Paso":  "Seguimientos publicos ocultan notas internas",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 count=1 body={\"codigoSeguimiento\":\"Q-2026-00001\",\"avancePorcentaje\":40,\"seguimientos\":[{\"id\":1,\"tipo\":\"PUBLICA\",\"titulo\":\"Caso recibido y en proceso\",\"descripcion\":\"El Ã¡rea de Servicios PÃºblicos estÃ¡ atendiendo la solicitud. Se programÃ³ inspecciÃ³n de ruta.\",\"porcentajeAvance\":40,\"creadoEn\":\"2026-08-17T19:32:34.717353Z\"}]}"
+    },
+    {
+        "Id":  "FA02-03",
+        "Flujo":  "FA02 Consultar",
+        "Paso":  "Codigo inexistente informa sin filtrar datos",
+        "Resultado":  "FAIL",
+        "Detalle":  "HTTP 404 {\"mensaje\":\"Código no encontrado. Verifique el número e intente nuevamente.\",\"codigo\":\"CASO_NO_ENCONTRADO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA02-04",
+        "Flujo":  "FA02 Consultar",
+        "Paso":  "Identificador invalido no revela informacion",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 400 {\"mensaje\":\"Los datos ingresados no permiten realizar la consulta.\",\"codigo\":\"CODIGO_INVALIDO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA02-05",
+        "Flujo":  "FA02 Consultar",
+        "Paso":  "UI de consulta publica disponible desde el portal",
+        "Resultado":  "PASS",
+        "Detalle":  "ConsultaCasoModal se abre desde Hero/QuickAccess/Navbar"
+    },
+    {
+        "Id":  "FA03-01",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Pantalla de login con usuario y contraseÃ±a",
+        "Resultado":  "FAIL",
+        "Detalle":  "Campos email y password; CTA \u0027Iniciar sesiÃ³n\u0027 (el CU pide etiqueta \u0027Acceder\u0027)"
+    },
+    {
+        "Id":  "FA03-02",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Ruta /login disponible sin sesion previa",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200"
+    },
+    {
+        "Id":  "FA03-03",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Credenciales validas ADMIN: JWT, rol y permisos",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 rol=ADMIN email=admin@municipalidad.gob.gt tokenLen=347"
+    },
+    {
+        "Id":  "FA03-04",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Sesion valida expone usuario autenticado",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 {\"usuario\":{\"id\":1,\"userId\":1,\"nombre\":\"Administrador QRDS\",\"email\":\"admin@municipalidad.gob.gt\",\"rol\":\"ADMIN\",\"areaDependencia\":null,\"permisos\":[\"CASOS_VER\",\"CASOS_GESTIONAR\",\"CASOS_ASIGNAR\",\"CASOS_CERRAR\",\"DOCUMENTOS_CARGAR\",\"DOCUMENTOS_DESCARGAR\",\"USUARIOS_ADMINISTRAR\",\"ROLES_ADMINISTRAR\",\"REPORTES_GENERAR\",\"AUDITORIA_CONSULTAR\",\"NOTIFICACIONES_GESTIONAR\"]}}"
+    },
+    {
+        "Id":  "FA03-05",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Ingreso AGENTE a bandeja segun rol",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 rol=AGENTE"
+    },
+    {
+        "Id":  "FA03-06",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Ingreso SUPERVISOR segun rol",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200 rol=SUPERVISOR"
+    },
+    {
+        "Id":  "FA03-07",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Bandeja interna requiere sesion (ADMIN accede)",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 200"
+    },
+    {
+        "Id":  "FA03-08",
+        "Flujo":  "FA03 Login",
+        "Paso":  "Sin token no hay acceso a funciones internas",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 401 {\"mensaje\":\"Su sesión ha expirado. Por favor inicie sesión nuevamente.\",\"codigo\":\"TOKEN_INVALIDO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA04-01",
+        "Flujo":  "FA04 Credenciales invalidas",
+        "Paso":  "Rechazo sin revelar si el usuario existe",
+        "Resultado":  "FAIL",
+        "Detalle":  "mismoMensaje=False msg=\u0027Usuario o contraseña incorrectos. Verifique sus datos e intente nuevamente.\u0027"
+    },
+    {
+        "Id":  "FA04-02",
+        "Flujo":  "FA04 Usuario inactivo",
+        "Paso":  "Usuario inactivo no inicia sesion",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 403 {\"mensaje\":\"Su cuenta está inactiva o bloqueada. Contacte al administrador del sistema.\",\"codigo\":\"USUARIO_INACTIVO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA04-03",
+        "Flujo":  "FA04",
+        "Paso":  "No se crea sesion valida tras fallo",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 401 {\"mensaje\":\"Su sesión ha expirado. Por favor inicie sesión nuevamente.\",\"codigo\":\"TOKEN_INVALIDO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA05-01",
+        "Flujo":  "FA05 Cerrar sesion",
+        "Paso":  "Logout invalida el token",
+        "Resultado":  "PASS",
+        "Detalle":  "logout=200 meAfter=401 {\"mensaje\":\"Su sesión ha expirado. Por favor inicie sesión nuevamente.\",\"codigo\":\"TOKEN_INVALIDO\",\"errores\":null,\"codigoExistente\":null}"
+    },
+    {
+        "Id":  "FA05-02",
+        "Flujo":  "FA05 Cerrar sesion",
+        "Paso":  "UI redirige al Portal Publico al cerrar sesion",
+        "Resultado":  "FAIL",
+        "Detalle":  "InternalLayout.logout navega a \u0027/\u0027"
+    },
+    {
+        "Id":  "RN14-01",
+        "Flujo":  "Bitacora",
+        "Paso":  "Registro de acceso publico sin autenticacion",
+        "Resultado":  "PASS",
+        "Detalle":  "HTTP 204"
+    },
+    {
+        "Id":  "RNF-02",
+        "Flujo":  "RNF",
+        "Paso":  "Credenciales no viajan en URL",
+        "Resultado":  "PASS",
+        "Detalle":  "Login usa POST JSON body; password no aparece en respuestas de login/error"
+    },
+    {
+        "Id":  "RNF-03",
+        "Flujo":  "RNF",
+        "Paso":  "Interfaz responsive (viewport + breakpoints)",
+        "Resultado":  "PASS",
+        "Detalle":  "index.html viewport + Tailwind md/lg en Navbar y QuickAccess"
+    },
+    {
+        "Id":  "RNF-04",
+        "Flujo":  "RNF",
+        "Paso":  "Validacion de autenticacion en servidor, no solo UI",
+        "Resultado":  "PASS",
+        "Detalle":  "API rechaza /api/casos sin JWT"
+    },
+    {
+        "Id":  "RN14-02",
+        "Flujo":  "Bitacora",
+        "Paso":  "Eventos LOGIN/LOGOUT/ACCESO_PORTAL persistidos",
+        "Resultado":  "FAIL",
+        "Detalle":  "Interactive command line tool to access a database using JDBC.\r\nUsage: java org.h2.tools.Shell \u003coptions\u003e\r\nOptions are case sensitive.\r\nSupported options[-help] or [-?]Print the list of options\r\n[-url \"\u003curl\u003e\"]         The database URL (jdbc:h2:...)\r\n[-user \u003cuser\u003e]         The user name\r\n[-password \u003cpwd\u003e]      The password\r\n[-driver \u003cclass\u003e]      The JDBC driver class to use (not required in most cases)\r\n[-sql \"\u003cstatements\u003e\"]  Execute the SQL statements and exit\r\n[-properties \"\u003cdir\u003e\"]  Load the server properties from this directory\r\nIf special characters don\u0027t work as expected, you may need to use\r\n -Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).\r\nSee also https://h2database.com/javadoc/org/h2/tools/Shell.html\r\njava.exe : Exception in thread \"main\" org.h2.jdbc.JdbcSQLFeatureNotSupportedException: Caracteristica no soportada: \r\n\"SELECT tipo_evento, resultado, count(*) c FROM bitacora_accesos GROUP BY tipo_evento, resultado ORDER BY tipo_evento;\"\r\nEn C:\\Users\\Crist\\Desktop\\Proyecto Analisis de Sistemas II\\tmp-cu-extract\\cu00-pruebas.ps1: 205 Carácter: 10\r\n+ $h2Out = \u0026 java -cp $h2Jar org.h2.tools.Shell -url $dbUrl -user sa -p ...\r\n+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (Exception in th...Y tipo_evento;\":String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError\r\n \r\nFeature not supported: \"SELECT tipo_evento, resultado, count(*) c FROM bitacora_accesos GROUP BY tipo_evento, \r\nresultado ORDER BY tipo_evento;\" [50100-232]\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:568)\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:489)\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:475)\r\n\tat org.h2.util.Tool.throwUnsupportedOption(Tool.java:70)\r\n\tat org.h2.util.Tool.showUsageAndThrowUnsupportedOption(Tool.java:58)\r\n\tat org.h2.tools.Shell.runTool(Shell.java:142)\r\n\tat org.h2.tools.Shell.main(Shell.java:80)"
+    },
+    {
+        "Id":  "RN15-01",
+        "Flujo":  "Bitacora",
+        "Paso":  "Datos minimos: tipo, resultado, IP, detalle, fecha",
+        "Resultado":  "PASS",
+        "Detalle":  "Interactive command line tool to access a database using JDBC.\r\nUsage: java org.h2.tools.Shell \u003coptions\u003e\r\nOptions are case sensitive.\r\nSupported options[-help] or [-?]Print the list of options\r\n[-url \"\u003curl\u003e\"]         The database URL (jdbc:h2:...)\r\n[-user \u003cuser\u003e]         The user name\r\n[-password \u003cpwd\u003e]      The password\r\n[-driver \u003cclass\u003e]      The JDBC driver class to use (not required in most cases)\r\n[-sql \"\u003cstatements\u003e\"]  Execute the SQL statements and exit\r\n[-properties \"\u003cdir\u003e\"]  Load the server properties from this directory\r\nIf special characters don\u0027t work as expected, you may need to use\r\n -Dfile.encoding=UTF-8 (Mac OS X) or CP850 (Windows).\r\nSee also https://h2database.com/javadoc/org/h2/tools/Shell.html\r\njava.exe : Exception in thread \"main\" org.h2.jdbc.JdbcSQLFeatureNotSupportedException: Caracteristica no soportada: \r\n\"SELECT tipo_evento, resultado, ip_cliente, detalle FROM bitacora_accesos ORDER BY id DESC FETCH FIRST 8 ROWS ONLY;\"\r\nEn C:\\Users\\Crist\\Desktop\\Proyecto Analisis de Sistemas II\\tmp-cu-extract\\cu00-pruebas.ps1: 210 Carácter: 11\r\n+ $h2Out2 = \u0026 java -cp $h2Jar org.h2.tools.Shell -url $dbUrl -user sa - ...\r\n+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (Exception in th...T 8 ROWS ONLY;\":String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError\r\n \r\nFeature not supported: \"SELECT tipo_evento, resultado, ip_cliente, detalle FROM bitacora_accesos ORDER BY id DESC \r\nFETCH FIRST 8 ROWS ONLY;\" [50100-232]\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:568)\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:489)\r\n\tat org.h2.message.DbException.getJdbcSQLException(DbException.java:475)\r\n\tat org.h2.util.Tool.throwUnsupportedOption(Tool.java:70)\r\n\tat org.h2.util.Tool.showUsageAndThrowUnsupportedOption(Tool.java:58)\r\n\tat org.h2.tools.Shell.runTool(Shell.java:142)\r\n\tat org.h2.tools.Shell.main(Shell.java:80)"
+    },
+    {
+        "Id":  "RN16-01",
+        "Flujo":  "Bitacora",
+        "Paso":  "No existe funcion normal para alterar bitacoras",
+        "Resultado":  "FAIL",
+        "Detalle":  "HTTP 500"
+    }
+]

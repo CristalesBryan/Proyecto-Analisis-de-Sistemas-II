@@ -1,0 +1,111 @@
+
+Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Administrar Roles y Permisos
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introducción. 
+Objetivo.
+El presente CU tiene como objetivo describir la administración de roles y permisos del sistema y garantizar la trazabilidad de sus cambios.
+
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Administrador del sistema.
+2.1.2. Sistema.
+
+
+
+
+2.2Precondiciones.
+2.2.1. Que el administrador haya iniciado sesión y tenga permisos para administrar accesos.
+2.2.2. Que existan usuarios o roles sobre los cuales se puedan gestionar permisos.
+
+Flujo Normal Básico 
+El administrador ingresa al módulo de Administración.
+El sistema muestra la opción de roles y permisos.
+El administrador selecciona el usuario o rol a gestionar.
+El sistema muestra los permisos actualmente asignados.
+El administrador agrega, retira o modifica permisos según corresponda.
+El administrador confirma los cambios realizados.
+El sistema valida que la operación sea autorizada.
+El sistema actualiza los roles o permisos seleccionados.
+El sistema registra en bitácora el cambio con usuario, fecha, hora, IP y descripción del evento.
+Fin del caso de uso.
+
+
+2.4Flujos Alternos.
+FA01: Configuración inválida
+El sistema informa que la combinación de permisos seleccionada no puede ser aplicada.
+El sistema mantiene la configuración anterior hasta que se corrija la operación.
+Fin del flujo alterno.
+
+FA02: Operación no autorizada
+El sistema informa que el administrador no cuenta con autorización suficiente para el cambio solicitado.
+El sistema conserva los roles y permisos sin modificaciones.
+Fin del flujo alterno.
+
+2.5Postcondiciones.
+Los roles o permisos quedan actualizados y el cambio queda registrado para efectos de auditoría.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+
+
+
+
+5. Firmas Necesarias 
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad
+ 
+ 
+ 
+ 

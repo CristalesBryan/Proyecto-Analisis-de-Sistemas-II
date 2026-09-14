@@ -44,26 +44,31 @@ CREATE TABLE parametros_sistema (
 );
 
 -- -----------------------------------------------------------------------------
--- Usuarios internos (CU-01, CU-10) — el ciudadano NO tiene fila aquí
+-- Usuarios internos y ciudadanos (CU-00, CU-10)
+-- El ciudadano registrado tiene rol CIUDADANO; el registro público de casos sigue siendo posible sin cuenta.
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE usuarios (
     id                      BIGSERIAL PRIMARY KEY,
     nombre                  VARCHAR(100) NOT NULL,
     email                   VARCHAR(150) NOT NULL UNIQUE,
+    telefono                VARCHAR(20),
+    dpi                     VARCHAR(13) UNIQUE,
     password_hash           VARCHAR(255) NOT NULL,
     rol                     VARCHAR(20)  NOT NULL
-        CHECK (rol IN ('ADMIN', 'SUPERVISOR', 'AGENTE')),
+        CHECK (rol IN ('ADMIN', 'SUPERVISOR', 'AGENTE', 'CIUDADANO')),
     area_dependencia_id     BIGINT REFERENCES areas_dependencia(id),
     activo                  BOOLEAN      NOT NULL DEFAULT TRUE,
     intentos_fallidos       INT          NOT NULL DEFAULT 0,
     bloqueado_hasta         TIMESTAMPTZ,
     forzar_cambio_password  BOOLEAN      NOT NULL DEFAULT TRUE,
     token_version           INT          NOT NULL DEFAULT 0,
+    acepta_privacidad       BOOLEAN      NOT NULL DEFAULT FALSE,
+    email_verificado        BOOLEAN      NOT NULL DEFAULT FALSE,
     creado_en               TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     actualizado_en          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_area_rol CHECK (
-        rol = 'ADMIN' OR area_dependencia_id IS NOT NULL
+        rol IN ('ADMIN', 'CIUDADANO') OR area_dependencia_id IS NOT NULL
     )
 );
 

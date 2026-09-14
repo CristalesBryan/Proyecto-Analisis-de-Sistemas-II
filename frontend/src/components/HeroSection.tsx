@@ -45,7 +45,7 @@ export function HeroSection({ onConsultar }: HeroSectionProps) {
               <FadeIn delay={1200} duration={1000}>
                 <div className="flex flex-wrap gap-4">
                   <Link
-                    to="/registro-caso"
+                    to="/registro-caso?tipo=Q"
                     className="rounded-lg bg-white px-8 py-3 font-medium text-black transition-colors hover:bg-gray-100"
                   >
                     Registrar Queja
@@ -55,7 +55,7 @@ export function HeroSection({ onConsultar }: HeroSectionProps) {
                     onClick={onConsultar}
                     className="liquid-glass rounded-lg border border-white/20 px-8 py-3 font-medium text-white transition-colors hover:bg-white hover:text-black"
                   >
-                    Consultar Mi Caso
+                    Consultar Seguimiento de Caso
                   </button>
                 </div>
               </FadeIn>

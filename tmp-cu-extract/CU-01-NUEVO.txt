@@ -1,0 +1,112 @@
+﻿
+Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Iniciar Sesión
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introducción. 
+Objetivo.
+El presente CU tiene como objetivo describir la interacción del usuario autorizado para ingresar al sistema municipal según el rol y permisos asignados.
+
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Sistema.
+2.1.2. Usuario autorizado.
+2.1.3. Administrador del sistema.
+
+
+
+2.2Precondiciones.
+2.2.1. Que el sistema web se encuentre activo y disponible.
+2.2.2. Que la persona cuente con un usuario activo dentro de la aplicación.
+
+Flujo Normal Básico 
+El usuario ingresa a la pantalla de inicio de sesión de la aplicación.
+El sistema despliega los campos Usuario y Contraseña.
+El usuario ingresa los datos correspondientes.
+El sistema habilita el botón “Acceder”.
+El usuario selecciona el botón “Acceder”.
+El sistema valida que las credenciales sean correctas y que el usuario se encuentre activo.
+El sistema identifica el rol y los permisos asignados al usuario.
+El sistema registra en bitácora el inicio de sesión con usuario, fecha, hora, IP y descripción del evento.
+El sistema permite el ingreso a la bandeja principal correspondiente al rol asignado.
+Fin del caso de uso.
+
+
+2.4Flujos Alternos.
+FA01: Credenciales inválidas
+El sistema muestra un mensaje indicando que las credenciales no son válidas.
+El sistema regresa a la pantalla de inicio de sesión.
+Fin del flujo alterno.
+
+FA02: Usuario inactivo o sin permisos
+El sistema informa que el usuario no se encuentra habilitado para ingresar.
+El sistema no inicia sesión y mantiene al usuario en la pantalla de acceso.
+Fin del flujo alterno.
+
+2.5Postcondiciones.
+El usuario queda autenticado y el inicio de sesión queda registrado en la bitácora de auditoría.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+
+
+
+
+5. Firmas Necesarias 
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad
+ 
+ 
+ 
+ 
+

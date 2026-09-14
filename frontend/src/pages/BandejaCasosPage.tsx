@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { BadgeEstado, BadgePlazo, InternalLayout } from '../components/InternalLayout'
+import { BadgeEstado, BadgePlazo, InternalLayout, etiquetaEstado } from '../components/InternalLayout'
 import {
   listarCasos,
   obtenerAreas,
@@ -10,6 +10,7 @@ import {
   type FiltrosBandeja,
 } from '../services/api'
 import { getUser } from '../services/auth'
+import { formatFechaHora } from '../lib/fechas'
 
 const ESTADOS = ['RECIBIDO', 'EN_REVISION', 'EN_PROCESO', 'RESUELTO', 'CERRADO', 'ANULADO']
 const TIPOS = [
@@ -41,6 +42,14 @@ export function BandejaCasosPage() {
 
   useEffect(() => {
     void obtenerAreas().then(setAreas).catch(() => setAreas([]))
+  }, [])
+
+  useEffect(() => {
+    function recargarAlVolver() {
+      setFiltros((actual) => ({ ...actual }))
+    }
+    window.addEventListener('focus', recargarAlVolver)
+    return () => window.removeEventListener('focus', recargarAlVolver)
   }, [])
 
   useEffect(() => {
@@ -83,7 +92,7 @@ export function BandejaCasosPage() {
     }))
   }
 
-  const titulo = usuario?.rol === 'AGENTE' ? 'Mis casos asignados' : 'Bandeja de casos'
+  const titulo = usuario?.rol === 'AGENTE' ? 'Casos de mi área' : 'Bandeja de casos'
 
   return (
     <InternalLayout>
@@ -112,7 +121,7 @@ export function BandejaCasosPage() {
           <option value="">Todos los estados</option>
           {ESTADOS.map((estado) => (
             <option key={estado} value={estado}>
-              {estado.split('_').join(' ')}
+              {etiquetaEstado(estado)}
             </option>
           ))}
         </select>
@@ -158,17 +167,15 @@ export function BandejaCasosPage() {
           onChange={(event) => actualizar('hasta', event.target.value)}
           aria-label="Hasta"
         />
-        {usuario?.rol !== 'AGENTE' && (
-          <label className="flex items-center gap-2 text-sm text-gray-300">
-            <input
-              type="checkbox"
-              checked={Boolean(filtros.sinAsignar)}
-              onChange={(event) => actualizar('sinAsignar', event.target.checked)}
-              className="accent-white"
-            />
-            Sin asignar
-          </label>
-        )}
+        <label className="flex items-center gap-2 text-sm text-gray-300">
+          <input
+            type="checkbox"
+            checked={Boolean(filtros.sinAsignar)}
+            onChange={(event) => actualizar('sinAsignar', event.target.checked)}
+            className="accent-white"
+          />
+          Sin asignar
+        </label>
       </form>
 
       {error && (
@@ -231,7 +238,9 @@ export function BandejaCasosPage() {
                     <BadgeEstado estado={caso.estado} />
                   </td>
                   <td className="px-4 py-3 text-gray-300">{caso.agenteNombre}</td>
-                  <td className="px-4 py-3 text-gray-300">{caso.fechaRegistro}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-300">
+                    {formatFechaHora(caso.fechaRegistro)}
+                  </td>
                   <td className="px-4 py-3">
                     <BadgePlazo plazo={caso.plazo} />
                   </td>

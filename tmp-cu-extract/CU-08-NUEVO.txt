@@ -1,0 +1,57 @@
+﻿Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Cerrar Caso
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+Introducción.
+Objetivo.
+El presente CU tiene como objetivo describir el cierre de un caso atendido y su registro de trazabilidad dentro del sistema municipal.
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Usuario municipal autorizado.
+2.1.2. Sistema.
+2.2Precondiciones.
+2.2.1. Que el usuario haya iniciado sesión y cuente con permiso para cerrar casos.
+2.2.2. Que el caso exista y cumpla las condiciones establecidas para su cierre.
+Flujo Normal Básico 
+El usuario accede al módulo de Administración de Casos.
+El usuario selecciona el caso que desea cerrar.
+El sistema muestra la información y el estado actual del caso.
+El usuario selecciona la opción “Cerrar caso”.
+El sistema solicita la información necesaria para documentar el cierre.
+El usuario ingresa la información correspondiente y confirma la operación.
+El sistema valida que el caso pueda ser cerrado.
+El sistema cambia el estado del caso a cerrado.
+El sistema registra en bitácora el cierre con usuario, fecha, hora, IP y descripción del evento.
+Fin del caso de uso.
+2.4Flujos Alternos.
+FA01: Caso no apto para cierre
+El sistema informa que el caso no cumple las condiciones necesarias para ser cerrado.
+El sistema conserva el estado actual del caso.
+Fin del flujo alterno.
+FA02: Cancelación del cierre
+El usuario cancela la confirmación de cierre.
+El sistema mantiene el caso sin cambios y regresa al detalle.
+Fin del flujo alterno.
+2.5Postcondiciones.
+El caso queda cerrado y la operación queda registrada en la bitácora de auditoría.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+5. Firmas Necesarias
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad

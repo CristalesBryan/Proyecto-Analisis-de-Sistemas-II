@@ -4,9 +4,12 @@ import {
   consultarCasoPublico,
   codigoSeguimientoValido,
   listarSeguimientosPublicos,
+  type ApiError,
   type CasoPublico,
-  type SeguimientoCaso,
+  type SeguimientoPublico,
 } from '../services/api'
+import { formatFecha, formatFechaHora } from '../lib/fechas'
+import { etiquetaEstado } from './InternalLayout'
 
 type ConsultaCasoModalProps = {
   open: boolean
@@ -18,7 +21,7 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resultado, setResultado] = useState<CasoPublico | null>(null)
-  const [seguimientos, setSeguimientos] = useState<SeguimientoCaso[]>([])
+  const [seguimientos, setSeguimientos] = useState<SeguimientoPublico[]>([])
 
   if (!open) return null
 
@@ -38,15 +41,24 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
     try {
       const data = await consultarCasoPublico(valor)
       setResultado(data)
-      try {
-        const linea = await listarSeguimientosPublicos(valor)
-        setSeguimientos(linea.seguimientos)
-        setResultado({ ...data, avancePorcentaje: linea.avancePorcentaje })
-      } catch {
-        setSeguimientos([])
+      if (Array.isArray(data.seguimientos)) {
+        setSeguimientos(data.seguimientos)
+      } else {
+        try {
+          const linea = await listarSeguimientosPublicos(valor)
+          setSeguimientos(linea.seguimientos)
+          setResultado({ ...data, avancePorcentaje: linea.avancePorcentaje })
+        } catch {
+          setSeguimientos([])
+        }
       }
-    } catch {
-      setError('Código no encontrado. Verifique el número e intente nuevamente.')
+    } catch (err) {
+      const fallo = err as ApiError
+      setError(
+        fallo.codigo === 'CODIGO_INVALIDO'
+          ? 'Los datos ingresados no permiten realizar la consulta.'
+          : fallo.message || 'Código no encontrado. Verifique el número e intente nuevamente.',
+      )
     } finally {
       setLoading(false)
     }
@@ -113,15 +125,15 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
                 <span className="text-gray-300">Tipo:</span> {resultado.tipo}
               </p>
               <p className="mt-1">
-                <span className="text-gray-300">Estado:</span> {resultado.estado}
+                <span className="text-gray-300">Estado:</span> {etiquetaEstado(resultado.estado)}
               </p>
               <p className="mt-1">
-                <span className="text-gray-300">Registrado:</span> {resultado.fechaRegistro}
+                <span className="text-gray-300">Registrado:</span> {formatFechaHora(resultado.fechaRegistro)}
               </p>
               {resultado.ultimaActualizacion && (
                 <p className="mt-1">
                   <span className="text-gray-300">Última actualización:</span>{' '}
-                  {resultado.ultimaActualizacion}
+                  {formatFechaHora(resultado.ultimaActualizacion)}
                 </p>
               )}
               <div className="mt-3">
@@ -136,19 +148,23 @@ export function ConsultaCasoModal({ open, onClose }: ConsultaCasoModalProps) {
                   />
                 </div>
               </div>
-              {seguimientos.length > 0 && (
+              {seguimientos.length > 0 ? (
                 <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto border-t border-white/10 pt-3">
                   {seguimientos.map((item) => (
                     <li key={item.id}>
                       <p className="font-medium text-white">{item.titulo}</p>
                       <p className="text-xs text-gray-400">
-                        {item.creadoEn.slice(0, 10)}
+                        {formatFecha(item.creadoEn)}
                         {item.porcentajeAvance !== null ? ` · ${item.porcentajeAvance}%` : ''}
                       </p>
-                      <p className="mt-1 text-gray-300">{item.descripcion}</p>
+                      <p className="mt-1 whitespace-pre-wrap break-words text-gray-300">{item.descripcion}</p>
                     </li>
                   ))}
                 </ul>
+              ) : (
+                <p className="mt-3 border-t border-white/10 pt-3 text-xs text-gray-400">
+                  Aún no hay avances públicos registrados.
+                </p>
               )}
             </div>
           )}

@@ -1,0 +1,111 @@
+
+Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Cargar Documento
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introducción. 
+Objetivo.
+El presente CU tiene como objetivo describir la carga de documentos asociados a un caso dentro del sistema municipal y su correspondiente registro de auditoría.
+
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Ciudadano o usuario autorizado.
+2.1.2. Sistema.
+
+
+
+
+2.2Precondiciones.
+2.2.1. Que exista un caso sobre el cual se permita adjuntar documentación.
+2.2.2. Que el usuario tenga acceso a la opción de carga de documentos.
+
+Flujo Normal Básico 
+El usuario accede al caso correspondiente.
+El sistema muestra la opción para adjuntar documentos.
+El usuario selecciona la opción de carga.
+El sistema permite seleccionar el archivo a cargar.
+El usuario selecciona el documento correspondiente.
+El sistema recibe el archivo y valida que pueda ser almacenado.
+El usuario confirma la carga del documento.
+El sistema asocia el documento al caso.
+El sistema registra en bitácora la carga con usuario, fecha, hora, IP y descripción del evento.
+Fin del caso de uso.
+
+
+2.4Flujos Alternos.
+FA01: Archivo no válido
+El sistema rechaza el archivo que no cumple las validaciones configuradas.
+El sistema permite seleccionar otro documento.
+Fin del flujo alterno.
+
+FA02: Error de carga
+El sistema informa que no fue posible almacenar el documento.
+El sistema mantiene el caso sin asociar el archivo fallido y permite intentar nuevamente.
+Fin del flujo alterno.
+
+2.5Postcondiciones.
+El documento queda asociado al caso y la operación queda registrada en la bitácora de auditoría.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+
+
+
+
+5. Firmas Necesarias 
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad
+ 
+ 
+ 
+ 

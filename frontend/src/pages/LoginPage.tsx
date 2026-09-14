@@ -38,6 +38,11 @@ export function LoginPage() {
   const formularioValido = emailValido && passwordValida
 
   useEffect(() => {
+    setEmail('')
+    setPassword('')
+  }, [])
+
+  useEffect(() => {
     if (consumirAvisoSesionExpirada()) {
       setAvisoExpirada(true)
       setErrorServidor(MENSAJE_SESION_EXPIRADA)
@@ -132,25 +137,35 @@ export function LoginPage() {
               <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg border border-white/20">
                 <ShieldCheck className="h-5 w-5" aria-hidden="true" />
               </div>
-              <p className="mb-2 text-sm text-gray-300">Acceso para personal autorizado</p>
+              <p className="mb-2 text-sm text-gray-300">Ciudadanos y personal municipal</p>
               <h1 className="text-3xl font-normal tracking-[-0.04em]">Iniciar sesión</h1>
               <p className="mt-3 text-sm leading-relaxed text-gray-300">
-                Ingresa con tus credenciales institucionales para gestionar casos.
+                Ingresa con tu correo y contraseña. Si eres ciudadano, puedes crear una cuenta
+                para ver tus datos y el seguimiento de tus casos.
               </p>
             </div>
 
-            <form noValidate onSubmit={handleSubmit} className="space-y-5">
+            <form noValidate autoComplete="off" onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="email" className="mb-2 block text-sm text-gray-200">
+                <label htmlFor="correo-acceso" className="mb-2 block text-sm text-gray-200">
                   Correo electrónico
                 </label>
                 <input
-                  id="email"
-                  type="email"
+                  id="correo-acceso"
+                  name="qrds-correo"
+                  type="text"
+                  inputMode="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="usuario@municipalidad.gt"
-                  autoComplete="email"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  readOnly
+                  onFocus={(event) => event.currentTarget.removeAttribute('readonly')}
+                  data-1p-ignore
+                  data-lpignore="true"
                   aria-label="Correo electrónico"
                   onBlur={() => setEmailTocado(true)}
                   aria-invalid={(enviado || emailTocado) && !emailValido}
@@ -169,17 +184,22 @@ export function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-2 block text-sm text-gray-200">
+                <label htmlFor="clave-acceso" className="mb-2 block text-sm text-gray-200">
                   Contraseña
                 </label>
                 <div className="relative">
                   <input
-                    id="password"
+                    id="clave-acceso"
+                    name="qrds-clave"
                     type={mostrarPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     onBlur={() => setPasswordTocado(true)}
-                    autoComplete="current-password"
+                    autoComplete="new-password"
+                    readOnly
+                    onFocus={(event) => event.currentTarget.removeAttribute('readonly')}
+                    data-1p-ignore
+                    data-lpignore="true"
                     aria-label="Contraseña"
                     aria-invalid={(enviado || passwordTocado) && !passwordValida}
                     aria-describedby={
@@ -245,7 +265,13 @@ export function LoginPage() {
               )}
             </form>
 
-            <p className="mt-6 text-center">
+            <p className="mt-6 text-center text-sm text-gray-300">
+              ¿Aún no tienes cuenta de ciudadano?{' '}
+              <Link to="/registro-ciudadano" className="text-white underline-offset-4 hover:underline">
+                Crear cuenta
+              </Link>
+            </p>
+            <p className="mt-3 text-center">
               <Link
                 to="/"
                 className="inline-flex items-center gap-2 text-sm text-gray-300 transition-colors hover:text-white"

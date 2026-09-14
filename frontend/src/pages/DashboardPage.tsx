@@ -18,8 +18,12 @@ const contenidoPorRol: Record<Rol, { titulo: string; descripcion: string }> = {
     descripcion: 'Gestión de casos, asignaciones y reportes de su área institucional.',
   },
   AGENTE: {
-    titulo: 'Mis casos asignados',
-    descripcion: 'Seguimiento y resolución de los casos bajo su responsabilidad.',
+    titulo: 'Casos de mi área',
+    descripcion: 'Atención de los casos asignados y de los nuevos registros pendientes de su dependencia.',
+  },
+  CIUDADANO: {
+    titulo: 'Mi cuenta',
+    descripcion: 'Consulta tus datos y el seguimiento de tus casos registrados.',
   },
 }
 

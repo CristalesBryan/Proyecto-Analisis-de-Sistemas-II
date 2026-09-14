@@ -7,6 +7,8 @@ import { DetalleCasoPage } from './pages/DetalleCasoPage'
 import { LoginPage } from './pages/LoginPage'
 import { PublicPortal } from './pages/PublicPortal'
 import { RegistroCasoPage } from './pages/RegistroCasoPage'
+import { RegistroCiudadanoPage } from './pages/RegistroCiudadanoPage'
+import { CiudadanoCuentaPage } from './pages/CiudadanoCuentaPage'
 import { ResolverCasoPage } from './pages/ResolverCasoPage'
 
 export default function App() {
@@ -15,6 +17,15 @@ export default function App() {
       <Routes>
         <Route path="/" element={<PublicPortal />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/registro-ciudadano" element={<RegistroCiudadanoPage />} />
+        <Route
+          path="/ciudadano"
+          element={
+            <ProtectedRoute rolRequerido="CIUDADANO">
+              <CiudadanoCuentaPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/registro-caso" element={<RegistroCasoPage />} />
         <Route path="/acceso-denegado" element={<AccesoDenegadoPage />} />
         <Route

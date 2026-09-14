@@ -1,0 +1,18 @@
+package gt.municipalidad.qrds.entity;
+
+public enum TipoEventoCaso {
+    CREACION,
+    DOCUMENTO_CARGADO,
+    DOCUMENTO_DESCARGADO,
+    CONSULTA_SEGUIMIENTO,
+    ASIGNACION,
+    REASIGNACION,
+    CAMBIO_ESTADO,
+    OBSERVACION,
+    ANULACION,
+    CIERRE,
+    MODIFICACION,
+    SEGUIMIENTO,
+    PRORROGA,
+    ESCALAMIENTO
+}

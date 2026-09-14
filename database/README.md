@@ -57,4 +57,4 @@ docker run --name qrds-pg -e POSTGRES_PASSWORD=qrds -e POSTGRES_DB=qrds -p 5432:
 
 Caso de prueba para consulta pública: **`Q-2026-00001`**
 
-> Los hashes BCrypt del seed son placeholders. Al conectar Spring Boot / Express, regenera con BCrypt strength 12.
+> Los hashes BCrypt del seed son placeholders. Al conectar Spring Boot, regenera con BCrypt strength 12.

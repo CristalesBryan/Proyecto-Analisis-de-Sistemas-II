@@ -1,0 +1,111 @@
+
+Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Registrar Queja, Reclamo, Denuncia o Sugerencia
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introducción. 
+Objetivo.
+El presente CU tiene como objetivo describir el registro de una queja, reclamo, denuncia o sugerencia dentro del sistema municipal.
+
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Ciudadano.
+2.1.2. Sistema.
+2.1.3. Usuario municipal autorizado.
+
+
+
+2.2Precondiciones.
+2.2.1. Que el sistema web se encuentre activo y disponible.
+2.2.2. Que el ciudadano tenga acceso al formulario de registro del caso.
+
+Flujo Normal Básico 
+El ciudadano accede a la opción para registrar un nuevo caso.
+El sistema muestra el formulario de registro.
+El ciudadano selecciona el tipo de caso: queja, reclamo, denuncia o sugerencia.
+El ciudadano ingresa la información solicitada para describir el caso.
+El ciudadano adjunta documentos cuando corresponda.
+El ciudadano confirma el envío de la información.
+El sistema valida que los datos obligatorios hayan sido ingresados.
+El sistema crea el caso y genera un identificador para su seguimiento.
+El sistema registra en bitácora la creación del caso y muestra la confirmación del registro.
+Fin del caso de uso.
+
+
+2.4Flujos Alternos.
+FA01: Datos obligatorios incompletos
+El sistema identifica los datos obligatorios faltantes y muestra un mensaje al ciudadano.
+El sistema mantiene el formulario para que el ciudadano complete la información.
+Fin del flujo alterno.
+
+FA02: Error al registrar el caso
+El sistema informa que no fue posible guardar el caso.
+El sistema conserva la información disponible y permite intentar nuevamente.
+Fin del flujo alterno.
+
+2.5Postcondiciones.
+El caso queda registrado en el sistema con un identificador de seguimiento y con trazabilidad de su creación.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+
+
+
+
+5. Firmas Necesarias 
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad
+ 
+ 
+ 
+ 

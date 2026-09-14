@@ -5,6 +5,15 @@ export type SistemaEstado = {
   mensaje?: string
 }
 
+export type SeguimientoPublico = {
+  id: number
+  tipo: string
+  titulo: string
+  descripcion: string
+  porcentajeAvance: number | null
+  creadoEn: string
+}
+
 export type CasoPublico = {
   codigoSeguimiento: string
   tipoCaso?: string
@@ -13,17 +22,21 @@ export type CasoPublico = {
   fechaRegistro: string
   ultimaActualizacion?: string
   avancePorcentaje?: number
+  seguimientos?: SeguimientoPublico[]
 }
 
-export type Rol = 'ADMIN' | 'SUPERVISOR' | 'AGENTE'
+export type Rol = 'ADMIN' | 'SUPERVISOR' | 'AGENTE' | 'CIUDADANO'
 
 export type UsuarioAutenticado = {
   id: number
   userId: number
   nombre: string
   email: string
+  telefono?: string | null
+  dpi?: string | null
   rol: Rol
   areaDependencia?: string | null
+  permisos?: string[]
 }
 
 type LoginResponse = {
@@ -40,6 +53,20 @@ export type ApiError = Error & {
 }
 
 const TIMEOUT_MS = 8000
+const RUTAS_PUBLICAS = [
+  '/api/auth/login',
+  '/api/auth/ciudadano/',
+  '/api/casos/captcha',
+  '/api/casos/publico',
+  '/api/sistema/estado',
+  '/api/bitacora/acceso-publico',
+  '/api/catalogos/',
+]
+
+function esRutaPublica(input: RequestInfo | URL) {
+  const url = String(input)
+  return RUTAS_PUBLICAS.some((ruta) => url.includes(ruta))
+}
 
 function errorDeConexion(): ApiError {
   const error = new Error(
@@ -72,7 +99,7 @@ export async function apiFetch(
   const { timeoutMs = TIMEOUT_MS, ...fetchInit } = init
   const headers = new Headers(fetchInit.headers)
   const token = getToken()
-  if (token && !headers.has('Authorization')) {
+  if (token && !headers.has('Authorization') && !esRutaPublica(input)) {
     headers.set('Authorization', `Bearer ${token}`)
   }
   if (fetchInit.body instanceof FormData) {
@@ -89,7 +116,7 @@ export async function apiFetch(
       signal: fetchInit.signal ?? controller.signal,
     })
 
-    if (res.status === 401) {
+    if (res.status === 401 && !esRutaPublica(input)) {
       const body = await res.clone().json().catch(() => ({}))
       if (body.codigo === 'TOKEN_INVALIDO') {
         marcarSesionExpirada()
@@ -155,6 +182,63 @@ export async function obtenerSesion() {
   return parsearJson<{ usuario: UsuarioAutenticado }>(res)
 }
 
+export type RegistroCiudadanoPayload = {
+  nombre: string
+  email: string
+  telefono: string
+  dpi: string
+  password: string
+  confirmarPassword: string
+  aceptaPrivacidad: boolean
+  captchaId: string
+  captchaRespuesta: string
+}
+
+export type CuentaCiudadano = {
+  perfil: {
+    id: number
+    nombre: string
+    email: string
+    telefono?: string | null
+    dpi?: string | null
+    rol: Rol
+    creadoEn: string
+    emailVerificado: boolean
+  }
+  casos: {
+    codigoSeguimiento: string
+    tipo: string
+    estado: string
+    fechaRegistro: string
+    ultimaActualizacion?: string
+    avancePorcentaje: number
+    areaDependencia?: string | null
+  }[]
+}
+
+export async function iniciarRegistroCiudadano(payload: RegistroCiudadanoPayload) {
+  const res = await apiFetch('/api/auth/ciudadano/verificar-inicio', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return parsearJson<{ registroId: string; mensaje: string }>(res)
+}
+
+export async function confirmarRegistroCiudadano(registroId: string, codigo: string) {
+  const res = await apiFetch('/api/auth/ciudadano/confirmar', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ registroId, codigo }),
+  })
+  return parsearJson<{ mensaje: string }>(res)
+}
+
+export async function obtenerCuentaCiudadano() {
+  const res = await apiFetch('/api/ciudadano/cuenta')
+  return parsearJson<CuentaCiudadano>(res)
+}
+
 export type AreaDependencia = {
   codigo: string
   nombre: string
@@ -170,7 +254,7 @@ export type RegistroCasoPayload = {
   nombreCiudadano: string
   email: string
   telefono: string
-  areaDependencia: string
+  areaDependencia?: string
   descripcion: string
   denunciado?: string
   esAnonimo: boolean
@@ -226,7 +310,35 @@ export async function adjuntarDocumentosCaso(codigo: string, archivos: File[]) {
     timeoutMs: 20000,
   })
   return parsearJson<{
-    archivosSubidos: { nombreArchivo: string }[]
+    archivosSubidos: { id?: number; nombreArchivo: string }[]
+    rechazados: { nombre: string; motivo: string }[]
+  }>(res)
+}
+
+export type DocumentoCaso = {
+  id: number
+  nombreArchivo: string
+  tipoMime: string
+  tamanioBytes: number
+  subidoEn: string
+  origen?: string
+}
+
+export async function listarDocumentosCaso(casoId: number) {
+  const res = await apiFetch(`/api/casos/${casoId}/documentos`)
+  return parsearJson<DocumentoCaso[]>(res)
+}
+
+export async function adjuntarDocumentosInterno(casoId: number, archivos: File[]) {
+  const form = new FormData()
+  for (const archivo of archivos) form.append('archivos', archivo)
+  const res = await apiFetch(`/api/casos/${casoId}/documentos`, {
+    method: 'POST',
+    body: form,
+    timeoutMs: 20000,
+  })
+  return parsearJson<{
+    archivosSubidos: { id: number; nombreArchivo: string }[]
     rechazados: { nombre: string; motivo: string }[]
   }>(res)
 }
@@ -339,6 +451,27 @@ export async function obtenerCaso(id: number) {
   return parsearJson<CasoDetalle>(res)
 }
 
+export async function modificarCaso(
+  id: number,
+  payload: {
+    nombreCiudadano?: string
+    email?: string
+    telefono?: string
+    areaDependencia?: string
+    descripcion?: string
+    denunciado?: string
+    prioridad?: string
+    motivo: string
+  },
+) {
+  const res = await apiFetch(`/api/casos/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return parsearJson<{ mensaje: string; caso: CasoDetalle }>(res)
+}
+
 export async function listarAgentes(area?: string) {
   const query = area ? `?area=${encodeURIComponent(area)}` : ''
   const res = await apiFetch(`/api/agentes${query}`)
@@ -386,6 +519,15 @@ export async function anularCaso(id: number, justificacion: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ justificacion }),
+  })
+  return parsearJson<{ mensaje: string; caso: CasoDetalle }>(res)
+}
+
+export async function cerrarCaso(id: number, observacion: string) {
+  const res = await apiFetch(`/api/casos/${id}/cerrar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ observacion }),
   })
   return parsearJson<{ mensaje: string; caso: CasoDetalle }>(res)
 }

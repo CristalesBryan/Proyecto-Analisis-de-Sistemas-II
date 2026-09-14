@@ -15,7 +15,7 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { EMAIL_REGEX } from '../services/auth'
 import {
   adjuntarDocumentosCaso,
@@ -26,6 +26,7 @@ import {
   type AreaDependencia,
   type RegistroCasoRespuesta,
 } from '../services/api'
+import { formatFechaHora } from '../lib/fechas'
 
 const VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
@@ -69,8 +70,20 @@ const INPUT =
 
 type TipoCaso = 'Q' | 'R' | 'D' | 'S'
 
-function claseCampo(invalido: boolean) {
-  return `${INPUT} ${invalido ? 'border-red-400/80' : 'border-white/20 focus:border-white/40'}`
+function tiposDesdeConsulta(valor: string | null): TipoCaso[] {
+  const clave = (valor || '').trim().toUpperCase()
+  if (clave === 'Q') return ['Q']
+  if (clave === 'S') return ['S']
+  if (clave === 'R') return ['R']
+  if (clave === 'D') return ['D']
+  if (clave === 'RD' || clave === 'R,D') return ['R', 'D']
+  return ['Q', 'R', 'D', 'S']
+}
+
+function claseCampo(invalido: boolean, bloqueado = false) {
+  return `${INPUT} ${invalido ? 'border-red-400/80' : 'border-white/20 focus:border-white/40'} ${
+    bloqueado ? 'cursor-not-allowed opacity-50' : ''
+  }`
 }
 
 function extensionDe(nombre: string) {
@@ -86,8 +99,12 @@ function validarArchivo(file: File) {
 }
 
 export function RegistroCasoPage() {
-  const [paso, setPaso] = useState(1)
-  const [tipoCaso, setTipoCaso] = useState<TipoCaso | ''>('')
+  const [searchParams] = useSearchParams()
+  const tipoQuery = searchParams.get('tipo')
+  const tiposPermitidos = useMemo(() => tiposDesdeConsulta(tipoQuery), [tipoQuery])
+  const tipoFijo = tiposPermitidos.length === 1
+  const [paso, setPaso] = useState(tipoFijo ? 2 : 1)
+  const [tipoCaso, setTipoCaso] = useState<TipoCaso | ''>(tipoFijo ? tiposPermitidos[0] : '')
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
   const [telefono, setTelefono] = useState('')
@@ -111,7 +128,24 @@ export function RegistroCasoPage() {
   const [avisoAdjuntos, setAvisoAdjuntos] = useState('')
   const [copiado, setCopiado] = useState(false)
 
-  const anonimo = tipoCaso === 'D' && esAnonimo
+  const anonimo = esAnonimo
+  const tiposVisibles = TIPOS.filter((tipo) => tiposPermitidos.includes(tipo.codigo))
+  const tituloRegistro =
+    tiposPermitidos.length === 1
+      ? `Registrar ${TIPOS.find((tipo) => tipo.codigo === tiposPermitidos[0])?.nombre.toLowerCase()}`
+      : tiposPermitidos.length === 2
+        ? 'Registrar reclamo o denuncia'
+        : 'Registrar caso'
+
+  useEffect(() => {
+    if (tipoFijo) {
+      const unico = tiposPermitidos[0]
+      setTipoCaso(unico)
+      setPaso((actual) => (actual === 1 ? 2 : actual))
+      return
+    }
+    setTipoCaso((actual) => (actual && tiposPermitidos.includes(actual) ? actual : ''))
+  }, [tipoFijo, tipoQuery, tiposPermitidos])
 
   useEffect(() => {
     void obtenerAreas()
@@ -143,14 +177,14 @@ export function RegistroCasoPage() {
       errores.email = 'Ingrese un correo electrónico válido.'
     }
     const digitos = telefono.replace(/\D/g, '')
-    if (digitos && (digitos.length < 8 || digitos.length > 15)) {
+    if (!anonimo && digitos && (digitos.length < 8 || digitos.length > 15)) {
       errores.telefono = 'El teléfono debe tener entre 8 y 15 dígitos.'
     }
-    if (!area) errores.area = 'Seleccione un área o dependencia.'
+    if (!anonimo && !area) errores.area = 'Seleccione un área o dependencia.'
     if (descripcion.trim().length < 50 || descripcion.trim().length > 2000) {
       errores.descripcion = 'La descripción debe tener entre 50 y 2000 caracteres.'
     }
-    if (tipoCaso === 'D' && denunciado.trim().length > 150) {
+    if (!anonimo && tipoCaso === 'D' && denunciado.trim().length > 150) {
       errores.denunciado = 'El nombre del denunciado no puede superar 150 caracteres.'
     }
     return errores
@@ -217,12 +251,12 @@ export function RegistroCasoPage() {
     try {
       const respuesta = await registrarCasoPublico({
         tipoCaso,
-        nombreCiudadano: nombre.trim(),
-        email: email.trim(),
-        telefono: telefono.replace(/\D/g, ''),
-        areaDependencia: area,
+        nombreCiudadano: anonimo ? '' : nombre.trim(),
+        email: anonimo ? '' : email.trim(),
+        telefono: anonimo ? '' : telefono.replace(/\D/g, ''),
+        areaDependencia: anonimo ? '' : area,
         descripcion: descripcion.trim(),
-        denunciado: denunciado.trim() || undefined,
+        denunciado: anonimo ? undefined : denunciado.trim() || undefined,
         esAnonimo: anonimo,
         aceptaPrivacidad,
         captchaId,
@@ -230,7 +264,7 @@ export function RegistroCasoPage() {
         forzarRegistro,
       })
 
-      if (archivos.length > 0) {
+      if (!anonimo && archivos.length > 0) {
         try {
           const adjuntos = await adjuntarDocumentosCaso(respuesta.codigoSeguimiento, archivos)
           if (adjuntos.rechazados.length > 0) {
@@ -317,8 +351,8 @@ export function RegistroCasoPage() {
                 onCopiar={() => void copiarCodigo()}
                 onNuevo={() => {
                   setConfirmacion(null)
-                  setPaso(1)
-                  setTipoCaso('')
+                  setPaso(tipoFijo ? 2 : 1)
+                  setTipoCaso(tipoFijo ? tiposPermitidos[0] : '')
                   setNombre('')
                   setEmail('')
                   setTelefono('')
@@ -341,10 +375,13 @@ export function RegistroCasoPage() {
             ) : (
               <>
                 <p className="mb-2 text-sm text-gray-300">Registro público · sin autenticación</p>
-                <h1 className="text-3xl font-normal tracking-[-0.04em]">Registrar caso</h1>
+                <h1 className="text-3xl font-normal tracking-[-0.04em]">{tituloRegistro}</h1>
                 <p className="mt-3 text-sm leading-relaxed text-gray-300">
-                  Presenta una queja, reclamo, denuncia o sugerencia. Recibirás un código de
-                  seguimiento al finalizar.
+                  {tipoFijo
+                    ? 'Completa los datos del caso. Recibirás un código de seguimiento al finalizar.'
+                    : tiposPermitidos.length === 2
+                      ? 'Elige si presentarás un reclamo o una denuncia. Recibirás un código de seguimiento al finalizar.'
+                      : 'Presenta una queja, reclamo, denuncia o sugerencia. Recibirás un código de seguimiento al finalizar.'}
                 </p>
 
                 <ol className="mt-8 grid grid-cols-3 gap-2 text-xs sm:text-sm" aria-label="Progreso del registro">
@@ -376,7 +413,7 @@ export function RegistroCasoPage() {
                         Selecciona el tipo de caso
                       </legend>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        {TIPOS.map((tipo) => {
+                        {tiposVisibles.map((tipo) => {
                           const Icon = tipo.icon
                           const seleccionado = tipoCaso === tipo.codigo
                           return (
@@ -386,7 +423,6 @@ export function RegistroCasoPage() {
                               onClick={() => {
                                 setTipoCaso(tipo.codigo)
                                 if (tipo.codigo !== 'D') {
-                                  setEsAnonimo(false)
                                   setDenunciado('')
                                 }
                               }}
@@ -415,32 +451,44 @@ export function RegistroCasoPage() {
 
                   {paso === 2 && (
                     <div className="space-y-5">
-                      {tipoCaso === 'D' && (
-                        <label className="flex items-start gap-3 text-sm text-gray-200">
-                          <input
-                            type="checkbox"
-                            checked={esAnonimo}
-                            onChange={(event) => setEsAnonimo(event.target.checked)}
-                            className="mt-1 h-4 w-4 accent-white"
-                          />
-                          <span>
-                            Presentar esta denuncia de forma anónima. El nombre y el correo serán
-                            opcionales y no se enviará confirmación por correo.
-                          </span>
-                        </label>
-                      )}
+                      <label className="flex items-start gap-3 text-sm text-gray-200">
+                        <input
+                          type="checkbox"
+                          checked={esAnonimo}
+                          onChange={(event) => {
+                            const valor = event.target.checked
+                            setEsAnonimo(valor)
+                            if (valor) {
+                              setNombre('')
+                              setEmail('')
+                              setTelefono('')
+                              setArea('')
+                              setDenunciado('')
+                              setArchivos([])
+                              setErroresArchivo([])
+                            }
+                          }}
+                          className="mt-1 h-4 w-4 accent-white"
+                        />
+                        <span>
+                          Presentar este caso de forma anónima. Se bloquearán nombre, correo,
+                          teléfono, área y demás datos personales; solo quedará activa la
+                          descripción del caso y no se enviará confirmación por correo.
+                        </span>
+                      </label>
 
                       <div>
                         <label htmlFor="nombre" className="mb-2 block text-sm text-gray-200">
-                          Nombre completo {anonimo ? '(opcional)' : ''}
+                          Nombre completo
                         </label>
                         <input
                           id="nombre"
                           value={nombre}
                           onChange={(event) => setNombre(event.target.value)}
-                          className={claseCampo(enviado && Boolean(erroresPaso2.nombre))}
+                          className={claseCampo(enviado && Boolean(erroresPaso2.nombre), anonimo)}
                           aria-invalid={enviado && Boolean(erroresPaso2.nombre)}
                           autoComplete="name"
+                          disabled={anonimo}
                         />
                         {enviado && erroresPaso2.nombre && (
                           <p className="mt-2 text-xs text-red-200">{erroresPaso2.nombre}</p>
@@ -449,17 +497,18 @@ export function RegistroCasoPage() {
 
                       <div>
                         <label htmlFor="correo" className="mb-2 block text-sm text-gray-200">
-                          Correo electrónico {anonimo ? '(opcional)' : ''}
+                          Correo electrónico
                         </label>
                         <input
                           id="correo"
                           type="email"
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
-                          className={claseCampo(enviado && Boolean(erroresPaso2.email))}
+                          className={claseCampo(enviado && Boolean(erroresPaso2.email), anonimo)}
                           aria-invalid={enviado && Boolean(erroresPaso2.email)}
                           autoComplete="email"
                           placeholder="ciudadano@correo.com"
+                          disabled={anonimo}
                         />
                         {enviado && erroresPaso2.email && (
                           <p className="mt-2 text-xs text-red-200">{erroresPaso2.email}</p>
@@ -475,9 +524,10 @@ export function RegistroCasoPage() {
                           type="tel"
                           value={telefono}
                           onChange={(event) => setTelefono(event.target.value)}
-                          className={claseCampo(enviado && Boolean(erroresPaso2.telefono))}
+                          className={claseCampo(enviado && Boolean(erroresPaso2.telefono), anonimo)}
                           aria-invalid={enviado && Boolean(erroresPaso2.telefono)}
                           autoComplete="tel"
+                          disabled={anonimo}
                         />
                         {enviado && erroresPaso2.telefono && (
                           <p className="mt-2 text-xs text-red-200">{erroresPaso2.telefono}</p>
@@ -492,8 +542,9 @@ export function RegistroCasoPage() {
                           id="area"
                           value={area}
                           onChange={(event) => setArea(event.target.value)}
-                          className={`${claseCampo(enviado && Boolean(erroresPaso2.area))} bg-black`}
+                          className={`${claseCampo(enviado && Boolean(erroresPaso2.area), anonimo)} bg-black`}
                           aria-invalid={enviado && Boolean(erroresPaso2.area)}
+                          disabled={anonimo}
                         >
                           <option value="">Seleccione una opción</option>
                           {areas.map((item) => (
@@ -516,8 +567,9 @@ export function RegistroCasoPage() {
                             id="denunciado"
                             value={denunciado}
                             onChange={(event) => setDenunciado(event.target.value)}
-                            className={claseCampo(enviado && Boolean(erroresPaso2.denunciado))}
+                            className={claseCampo(enviado && Boolean(erroresPaso2.denunciado), anonimo)}
                             maxLength={150}
+                            disabled={anonimo}
                           />
                           {enviado && erroresPaso2.denunciado && (
                             <p className="mt-2 text-xs text-red-200">{erroresPaso2.denunciado}</p>
@@ -561,6 +613,13 @@ export function RegistroCasoPage() {
 
                       <div>
                         <p className="mb-2 text-sm text-gray-200">Documentos de soporte (opcional)</p>
+                        {anonimo ? (
+                          <p className="rounded-lg border border-white/15 bg-black/30 px-4 py-3 text-sm text-gray-400">
+                            En un registro anónimo no se adjuntan documentos para no identificar al
+                            ciudadano.
+                          </p>
+                        ) : (
+                          <>
                         <label className="flex cursor-pointer flex-col items-center rounded-xl border border-dashed border-white/20 px-4 py-8 text-center transition-colors hover:border-white/40">
                           <Upload className="mb-3 h-5 w-5" aria-hidden="true" />
                           <span className="text-sm">PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos</span>
@@ -605,6 +664,8 @@ export function RegistroCasoPage() {
                             {error}
                           </p>
                         ))}
+                          </>
+                        )}
                       </div>
 
                       <div>
@@ -666,7 +727,7 @@ export function RegistroCasoPage() {
                   )}
 
                   <div className="flex flex-wrap gap-3">
-                    {paso > 1 && (
+                    {paso > 1 && !(tipoFijo && paso === 2) && (
                       <button
                         type="button"
                         onClick={() => {
@@ -805,14 +866,14 @@ function Confirmacion({
       </div>
 
       <ul className="mt-6 space-y-2 text-sm text-gray-300">
-        <li>Fecha de registro: {confirmacion.fechaRegistro}</li>
+        <li>Fecha de registro: {formatFechaHora(confirmacion.fechaRegistro)}</li>
         <li>Plazo estimado de respuesta: {confirmacion.plazoEstimado}</li>
       </ul>
 
       {confirmacion.esAnonimo || !confirmacion.correoEnviado ? (
         <p className="mt-6 rounded-lg border border-amber-300/30 bg-amber-950/40 px-4 py-3 text-sm text-amber-100">
           {confirmacion.esAnonimo
-            ? `No se envió correo porque la denuncia es anónima. Su código de caso es: ${confirmacion.codigoSeguimiento}. Guárdelo para dar seguimiento.`
+            ? `No se envió correo porque el caso es anónimo. Su código de caso es: ${confirmacion.codigoSeguimiento}. Guárdelo para dar seguimiento.`
             : `No fue posible enviar la confirmación por correo. Su código de caso es: ${confirmacion.codigoSeguimiento}. Guárdelo para dar seguimiento.`}
         </p>
       ) : (

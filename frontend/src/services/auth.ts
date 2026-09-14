@@ -8,13 +8,14 @@ export const destinosPorRol: Record<Rol, string> = {
   ADMIN: '/admin/casos',
   SUPERVISOR: '/supervisor/casos',
   AGENTE: '/agente/casos',
+  CIUDADANO: '/ciudadano',
 }
 
 /** Validación de correo institucional (RN-02 / RFC 5322 práctico). */
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function esRol(valor: string): valor is Rol {
-  return valor === 'ADMIN' || valor === 'SUPERVISOR' || valor === 'AGENTE'
+  return valor === 'ADMIN' || valor === 'SUPERVISOR' || valor === 'AGENTE' || valor === 'CIUDADANO'
 }
 
 export function destinoDeRol(rol: string) {

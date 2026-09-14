@@ -1,0 +1,269 @@
+Caso de Uso
+Sistema de Quejas, Reclamos, Denuncias y Sugerencias (QRDS)
+Con Módulo de Bitácoras Municipales
+Reglas de Negocio para Casos de Uso
+Versión 1.0
+Fecha Elaboración: 15/08/2026
+Alcance: CU-01 a CU-15
+Historial de Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+________________
+15/08/2026
+Definición Inicial
+1.0
+1. Introducción
+1.1 Objetivo
+Detallar las reglas de negocio que son de utilidad a los Casos de Uso CU-01 a CU-15 del Sistema QRDS Municipal, estableciendo validaciones, restricciones y referencias cruzadas para que los casos de uso mantengan un comportamiento consistente.
+2. Definición del Caso de Uso
+2.1 Actores
+2.1.1. Módulo de Reglas de Negocio del Sistema QRDS.
+2.1.2. Casos de Uso CU-01 a CU-15 que invocan validaciones.
+2.1.3. Sistema informático.
+2.2 Precondiciones
+2.2.1. Que el sistema web se encuentre activo y disponible.
+2.2.2. Que exista el llamado a la regla desde uno de los casos de uso.
+2.2.3. Que el usuario se encuentre autenticado cuando el caso de uso lo requiera.
+2.3 Flujo Normal Básico
+1. El sistema recibe la llamada del caso de uso.
+2. El sistema identifica la regla de negocio requerida.
+3. El sistema realiza las validaciones definidas en la sección 4.
+4. El sistema devuelve el resultado de la validación.
+5. El sistema retorna al caso de uso invocante.
+6. Fin del Caso de Uso.
+2.4 Flujos Alternos
+FA-01. Regla no aplicable: el sistema continúa sin ejecutar la validación que no corresponda al contexto.
+FA-02. Validación fallida: el sistema rechaza la acción e informa la causa al caso de uso invocante.
+FA-03. Operación no autorizada: el sistema mantiene la información sin cambios.
+2.5 Poscondiciones
+2.5.1. El caso de uso recibe un resultado permitido o denegado.
+2.5.2. Si la operación es auditable, el evento queda registrado en bitácora.
+2.5.3. No se altera información cuando una validación obligatoria falla.
+3. Requerimientos Suplementarios o No Funcionales
+ID
+Tipo
+Descripción
+RNF-RN-01
+Integridad
+Las validaciones deben ejecutarse antes de guardar cambios.
+RNF-RN-02
+Trazabilidad
+Las operaciones definidas por el TDR deben quedar registradas en bitácora.
+RNF-RN-03
+Inmutabilidad
+La bitácora se mantiene en modo de solo consulta; no admite modificación o eliminación desde la aplicación.
+RNF-RN-04
+Seguridad
+El acceso a funciones internas depende del rol y permisos asignados.
+RNF-RN-05
+Consistencia
+Las consultas y reportes no alteran la información fuente.
+4. REGLAS DE NEGOCIO
+RN01 — CU-01 Iniciar Sesión
+Regla
+Detalle
+RN01.1
+El usuario debe encontrarse activo.
+RN01.2
+Las credenciales deben ser válidas.
+RN01.3
+El sistema debe identificar rol y permisos antes de permitir el acceso.
+RN01.4
+Todo inicio de sesión exitoso debe registrarse en bitácora.
+RN02 — CU-02 Cerrar Sesión
+Regla
+Detalle
+RN02.1
+El cierre debe invalidar la sesión activa.
+RN02.2
+Después del cierre no se permite acceder a funciones protegidas sin una nueva autenticación.
+RN02.3
+El cierre de sesión debe registrarse en bitácora.
+RN03 — CU-03 Registrar Queja, Reclamo, Denuncia o Sugerencia
+Regla
+Detalle
+RN03.1
+El tipo de caso debe ser queja, reclamo, denuncia o sugerencia.
+RN03.2
+Los datos obligatorios deben estar completos antes del registro.
+RN03.3
+Todo registro exitoso debe generar un identificador de seguimiento.
+RN03.4
+La creación del caso debe registrarse en bitácora.
+RN04 — CU-04 Cargar Documento
+Regla
+Detalle
+RN04.1
+El caso debe existir y permitir adjuntar documentación.
+RN04.2
+El archivo debe cumplir las validaciones configuradas.
+RN04.3
+El documento solo se asocia al caso después de una carga exitosa.
+RN04.4
+La carga debe registrarse en bitácora.
+RN05 — CU-05 Consultar Seguimiento de Caso
+Regla
+Detalle
+RN05.1
+El caso debe existir.
+RN05.2
+La consulta requiere el identificador o mecanismo autorizado.
+RN05.3
+Solo se muestra información permitida y la consulta no modifica el caso.
+RN06 — CU-06 Administrar Casos
+Regla
+Detalle
+RN06.1
+El usuario debe tener permiso de administración de casos.
+RN06.2
+Las acciones disponibles dependen de los permisos del usuario.
+RN06.3
+Las operaciones que cambien el caso deben conservar trazabilidad.
+RN07 — CU-07 Modificar Caso
+Regla
+Detalle
+RN07.1
+El caso debe existir y estar habilitado para modificación.
+RN07.2
+Solo usuarios con permiso pueden modificarlo.
+RN07.3
+Los cambios deben validarse antes de guardarse y quedar registrados en bitácora.
+RN08 — CU-08 Cerrar Caso
+Regla
+Detalle
+RN08.1
+El usuario debe tener permiso para cerrar casos.
+RN08.2
+El caso debe cumplir las condiciones definidas para cierre.
+RN08.3
+El cierre debe registrarse en bitácora y conservar el historial del caso.
+RN09 — CU-09 Gestionar Notificaciones
+Regla
+Detalle
+RN09.1
+La notificación debe corresponder a un evento configurado.
+RN09.2
+Debe existir un destinatario válido cuando la notificación lo requiera.
+RN09.3
+El resultado del envío debe quedar registrado o asociado al seguimiento cuando corresponda.
+RN10 — CU-10 Generar Reportes
+Regla
+Detalle
+RN10.1
+El usuario debe contar con permiso de reportes.
+RN10.2
+Los criterios de consulta deben ser válidos.
+RN10.3
+El reporte solo incluye información permitida y no modifica los datos fuente.
+RN11 — CU-11 Administrar Usuarios
+Regla
+Detalle
+RN11.1
+Solo un administrador autorizado puede gestionar usuarios.
+RN11.2
+Los datos deben ser válidos antes de crear o modificar un usuario.
+RN11.3
+Los cambios de usuarios deben registrarse en bitácora.
+RN12 — CU-12 Administrar Roles y Permisos
+Regla
+Detalle
+RN12.1
+Solo un administrador autorizado puede gestionar roles y permisos.
+RN12.2
+Las configuraciones inválidas deben rechazarse sin alterar la configuración vigente.
+RN12.3
+Todo cambio de roles o permisos debe registrarse en bitácora.
+RN13 — CU-13 Descargar Documento
+Regla
+Detalle
+RN13.1
+El documento debe existir y estar asociado a un caso.
+RN13.2
+El usuario debe tener permiso para acceder al documento.
+RN13.3
+Toda descarga exitosa debe registrarse en bitácora.
+RN14 — CU-14 Consultar Bitácora de Auditoría
+Regla
+Detalle
+RN14.1
+Solo usuarios con permisos de auditoría pueden consultar la bitácora.
+RN14.2
+La consulta puede mostrar usuario, fecha, hora, IP y descripción del evento.
+RN14.3
+Los registros son de solo lectura y no pueden modificarse ni eliminarse.
+RN15 — CU-15 Generar Reporte de Auditoría
+Regla
+Detalle
+RN15.1
+El usuario debe contar con permiso para generar reportes de auditoría.
+RN15.2
+Los criterios de consulta deben ser válidos.
+RN15.3
+El reporte se genera a partir de la bitácora sin alterar los registros originales.
+5. Anexos
+AN01 — Eventos mínimos de auditoría
+Evento
+Caso de Uso relacionado
+Inicio de sesión
+CU-01
+Cierre de sesión
+CU-02
+Creación de caso
+CU-03
+Carga de documento
+CU-04
+Modificación de caso
+CU-07
+Cierre de caso
+CU-08
+Cambios de usuarios
+CU-11
+Cambios de roles y permisos
+CU-12
+Descarga de documento
+CU-13
+AN02 — Mapa rápido CU → RN
+CU
+Reglas principales
+CU-01
+RN01
+CU-02
+RN02
+CU-03
+RN03
+CU-04
+RN04
+CU-05
+RN05
+CU-06
+RN06
+CU-07
+RN07
+CU-08
+RN08
+CU-09
+RN09
+CU-10
+RN10
+CU-11
+RN11
+CU-12
+RN12
+CU-13
+RN13
+CU-14
+RN14
+CU-15
+RN15
+6. Firmas Necesarias
+Persona
+Rol / Sector
+Firma / Fecha
+________________
+Desarrollador
+________________
+Analista de Sistemas
+________________
+Responsable Institucional

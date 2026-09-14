@@ -1,0 +1,111 @@
+
+Caso de Uso
+Sistema Municipal de Quejas, Reclamos, Denuncias y Sugerencias
+Consultar Seguimiento de Caso
+Versión 1.0
+Elaborado por :______________
+Fecha Elaboración 15/08/2026
+Historial Revisiones
+Nombre
+Fecha
+Descripción del Cambio
+Versión
+______________
+15/08/2026
+Definición Inicial
+1.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Introducción. 
+Objetivo.
+El presente CU tiene como objetivo describir la consulta del estado y seguimiento de un caso registrado en el sistema municipal.
+
+Definición Caso de Uso 
+2.1Actores.
+2.1.1. Ciudadano o usuario autorizado.
+2.1.2. Sistema.
+
+
+
+
+2.2Precondiciones.
+2.2.1. Que exista un caso registrado en el sistema.
+2.2.2. Que el usuario disponga del identificador o mecanismo autorizado para consultar el caso.
+
+Flujo Normal Básico 
+El usuario accede a la opción de seguimiento.
+El sistema solicita los datos necesarios para localizar el caso.
+El usuario ingresa el identificador o los datos de consulta.
+El usuario solicita la búsqueda.
+El sistema valida la información proporcionada.
+El sistema localiza el caso correspondiente.
+El sistema consulta el estado y la información de seguimiento disponible.
+El sistema muestra al usuario el estado actual del caso y los datos permitidos.
+El usuario revisa la información presentada.
+Fin del caso de uso.
+
+
+2.4Flujos Alternos.
+FA01: Caso no encontrado
+El sistema informa que no existe un caso asociado a los datos de búsqueda ingresados.
+El sistema permite realizar una nueva consulta.
+Fin del flujo alterno.
+
+FA02: Datos de consulta inválidos
+El sistema informa que los datos ingresados no permiten realizar la consulta.
+El sistema regresa a la captura de datos de seguimiento.
+Fin del flujo alterno.
+
+2.5Postcondiciones.
+La información de seguimiento del caso queda disponible para consulta sin alterar el registro del caso.
+Requerimientos Suplementarios o no Funcionales 
+Anexos
+Reglas de Negocio:
+Ver Documento: Reglas de negocio de Casos de Uso (última versión formalizada).
+
+
+
+
+5. Firmas Necesarias 
+ Persona
+Sector
+Firma
+ ______________
+ Municipalidad
+ 
+ 
+ 
+ 

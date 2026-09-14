@@ -12,6 +12,19 @@ const inicioPorRol: Record<Rol, string> = {
   ADMIN: '/admin/dashboard',
   SUPERVISOR: '/supervisor/dashboard',
   AGENTE: '/agente/casos',
+  CIUDADANO: '/ciudadano',
+}
+
+export function etiquetaEstado(estado: string) {
+  const etiquetas: Record<string, string> = {
+    RECIBIDO: 'Recibido',
+    EN_REVISION: 'En revisión',
+    EN_PROCESO: 'En proceso',
+    RESUELTO: 'Resuelto',
+    CERRADO: 'Cerrado',
+    ANULADO: 'Anulado',
+  }
+  return etiquetas[estado] || estado.split('_').join(' ')
 }
 
 export const ESTILO_ESTADO: Record<string, string> = {
@@ -28,7 +41,7 @@ export function BadgeEstado({ estado }: { estado: string }) {
     <span
       className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs ${ESTILO_ESTADO[estado] || 'border-white/20'}`}
     >
-      {estado.split('_').join(' ')}
+      {etiquetaEstado(estado)}
     </span>
   )
 }
@@ -82,7 +95,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
 
   const links = [
     { to: inicio, label: 'Inicio', visible: rol !== 'AGENTE' },
-    { to: bandeja, label: rol === 'AGENTE' ? 'Mis asignados' : 'Bandeja de casos', visible: true },
+    { to: bandeja, label: rol === 'AGENTE' ? 'Mis casos' : 'Bandeja de casos', visible: true },
   ].filter((item) => item.visible)
 
   return (
@@ -138,7 +151,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
             )}
           </nav>
         </aside>
-        <section>{children}</section>
+        <section className="min-w-0">{children}</section>
       </div>
     </main>
   )
