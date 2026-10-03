@@ -1,0 +1,219 @@
+<main class="auth-scene page-pad" style="min-height: 100vh;">
+  <div class="mx-auto d-flex flex-column" style="max-width: 72rem; min-height: calc(100vh - 3rem);">
+    <header class="d-flex align-items-center justify-content-between">
+      <a routerLink="/" class="brand">
+        <span class="brand-mark">QRDS</span>
+        <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+      </a>
+      <a routerLink="/" class="link-secondary text-decoration-none small">← Volver al portal</a>
+    </header>
+
+    <div class="flex-grow-1 d-flex align-items-center justify-content-center py-4">
+      <section class="panel p-4 p-sm-5 w-100 login-card" style="max-width: 42rem;">
+        @if (confirmacion) {
+          <p class="small text-secondary mb-2">Registro exitoso · {{ confirmacion.tipo }}</p>
+          <h1 class="h2">Guarda tu código</h1>
+          <p class="small text-secondary">
+            Tu caso quedó en estado {{ confirmacion.estado }}. Úsalo para consultar el avance desde el portal, sin crear una cuenta.
+          </p>
+          <div class="border rounded p-3 mt-4">
+            <p class="small text-uppercase text-secondary mb-1">Código de seguimiento</p>
+            <div class="d-flex align-items-center justify-content-between gap-3">
+              <p class="h3 mb-0">{{ confirmacion.codigoSeguimiento }}</p>
+              <button type="button" class="btn btn-outline-civic btn-sm" (click)="copiarCodigo()">
+                {{ copiado ? 'Copiado' : 'Copiar' }}
+              </button>
+            </div>
+          </div>
+          <ul class="mt-3 small text-secondary">
+            <li>Fecha de registro: {{ formatFechaHora(confirmacion.fechaRegistro) }}</li>
+            <li>Plazo estimado de respuesta: {{ confirmacion.plazoEstimado }}</li>
+          </ul>
+          @if (confirmacion.esAnonimo || !confirmacion.correoEnviado) {
+            <p class="alert alert-warning">
+              {{ confirmacion.esAnonimo
+                ? 'No se envió correo porque el caso es anónimo. Su código de caso es: ' + confirmacion.codigoSeguimiento + '. Guárdelo para dar seguimiento.'
+                : 'No fue posible enviar la confirmación por correo. Su código de caso es: ' + confirmacion.codigoSeguimiento + '. Guárdelo para dar seguimiento.' }}
+            </p>
+          } @else {
+            <p class="small text-secondary">Enviamos una confirmación a tu correo con el código y el plazo estimado.</p>
+          }
+          @if (avisoAdjuntos) {
+            <p class="alert alert-warning">{{ avisoAdjuntos }}</p>
+          }
+          <div class="d-flex flex-wrap gap-2 mt-4">
+            <a routerLink="/" class="btn btn-primary">Volver al portal</a>
+            <button type="button" class="btn btn-outline-civic" (click)="nuevo()">Registrar otro caso</button>
+          </div>
+        } @else {
+          <p class="small text-secondary mb-2">Registro público · sin autenticación</p>
+          <h1 class="h2">{{ tituloRegistro }}</h1>
+          <p class="small text-secondary">
+            @if (tipoFijo) {
+              Completa los datos del caso. Recibirás un código de seguimiento al finalizar.
+            } @else if (tiposPermitidos.length === 2) {
+              Elige si presentarás un reclamo o una denuncia. Recibirás un código de seguimiento al finalizar.
+            } @else {
+              Presenta una queja, reclamo, denuncia o sugerencia. Recibirás un código de seguimiento al finalizar.
+            }
+          </p>
+
+          <ol class="row g-2 list-unstyled mt-4" aria-label="Progreso del registro">
+            @for (etiqueta of pasos; track etiqueta; let i = $index) {
+              <li class="col-4">
+                <div class="step-pill" [class.active]="paso === i + 1" [class.done]="paso > i + 1">
+                  {{ i + 1 }}. {{ etiqueta }}
+                </div>
+              </li>
+            }
+          </ol>
+
+          <form novalidate class="mt-4" (submit)="enviarFormulario($event)">
+            @if (paso === 1) {
+              <fieldset class="mb-3">
+                <legend class="form-label">Selecciona el tipo de caso</legend>
+                <div class="row g-3">
+                  @for (tipo of tiposVisibles; track tipo.codigo) {
+                    <div class="col-sm-6">
+                      <button type="button" class="tipo-card w-100" [class.selected]="tipoCaso === tipo.codigo" (click)="elegirTipo(tipo.codigo)" [attr.aria-pressed]="tipoCaso === tipo.codigo">
+                        <p class="fw-medium mb-1">{{ tipo.nombre }}</p>
+                        <p class="small text-secondary mb-2">{{ tipo.descripcion }}</p>
+                        <p class="small text-secondary mb-0">Plazo: {{ tipo.plazo }}</p>
+                      </button>
+                    </div>
+                  }
+                </div>
+                @if (enviado && !tipoCaso) {
+                  <p class="field-error">Seleccione un tipo de caso.</p>
+                }
+              </fieldset>
+            }
+
+            @if (paso === 2) {
+              <label class="d-flex gap-2 small mb-3">
+                <input type="checkbox" class="form-check-input mt-1" [checked]="esAnonimo" (change)="cambiarAnonimo(marcado($event))">
+                <span>Presentar este caso de forma anónima. Se bloquearán nombre, correo, teléfono, área y demás datos personales; solo quedará activa la descripción del caso y no se enviará confirmación por correo.</span>
+              </label>
+              <div class="mb-3">
+                <label class="form-label" for="nombre">Nombre completo</label>
+                <input id="nombre" class="form-control" [value]="nombre" (input)="nombre = valor($event)" [disabled]="esAnonimo">
+                @if (enviado && erroresPaso2['nombre']) { <p class="field-error">{{ erroresPaso2['nombre'] }}</p> }
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="correo">Correo electrónico</label>
+                <input id="correo" type="email" class="form-control" [value]="email" (input)="email = valor($event)" placeholder="ciudadano@correo.com" [disabled]="esAnonimo">
+                @if (enviado && erroresPaso2['email']) { <p class="field-error">{{ erroresPaso2['email'] }}</p> }
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="telefono">Teléfono (opcional)</label>
+                <input id="telefono" type="tel" class="form-control" [value]="telefono" (input)="telefono = valor($event)" [disabled]="esAnonimo">
+                @if (enviado && erroresPaso2['telefono']) { <p class="field-error">{{ erroresPaso2['telefono'] }}</p> }
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="area">Área / dependencia</label>
+                <select id="area" class="form-select" [value]="area" (change)="area = valor($event)" [disabled]="esAnonimo">
+                  <option value="">Seleccione una opción</option>
+                  @for (item of areas; track item.codigo) {
+                    <option [value]="item.codigo">{{ item.nombre }}</option>
+                  }
+                </select>
+                @if (enviado && erroresPaso2['area']) { <p class="field-error">{{ erroresPaso2['area'] }}</p> }
+              </div>
+              @if (tipoCaso === 'D') {
+                <div class="mb-3">
+                  <label class="form-label" for="denunciado">Funcionario o área denunciada (opcional)</label>
+                  <input id="denunciado" class="form-control" maxlength="150" [value]="denunciado" (input)="denunciado = valor($event)" [disabled]="esAnonimo">
+                  @if (enviado && erroresPaso2['denunciado']) { <p class="field-error">{{ erroresPaso2['denunciado'] }}</p> }
+                </div>
+              }
+              <div class="mb-3">
+                <div class="d-flex justify-content-between">
+                  <label class="form-label" for="descripcion">Descripción del caso</label>
+                  <span class="small text-secondary">{{ descripcion.length }}/2000</span>
+                </div>
+                <textarea id="descripcion" class="form-control" rows="6" maxlength="2000" [value]="descripcion" (input)="descripcion = valor($event)" placeholder="Describe los hechos con el mayor detalle posible (mínimo 50 caracteres)."></textarea>
+                @if (enviado && erroresPaso2['descripcion']) { <p class="field-error">{{ erroresPaso2['descripcion'] }}</p> }
+              </div>
+            }
+
+            @if (paso === 3) {
+              <div class="border rounded p-3 small text-secondary mb-3">
+                <p class="mb-1"><span class="text-dark">{{ tipoSeleccionado?.nombre }}</span>{{ area ? ' · ' + areaNombre : '' }}</p>
+                <p class="mb-0">{{ descripcion }}</p>
+              </div>
+              <p class="form-label">Documentos de soporte (opcional)</p>
+              @if (esAnonimo) {
+                <p class="border rounded p-3 small text-secondary">En un registro anónimo no se adjuntan documentos para no identificar al ciudadano.</p>
+              } @else {
+                <label class="dropzone d-block mb-2">
+                  PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos
+                  <input type="file" class="d-none" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="agregarArchivos($event)">
+                </label>
+                @if (archivos.length > 0) {
+                  <ul class="list-unstyled">
+                    @for (archivo of archivos; track archivo.name + archivo.size) {
+                      <li class="d-flex align-items-center justify-content-between border rounded px-3 py-2 mb-2 small">
+                        <span class="text-truncate">{{ archivo.name }}</span>
+                        <button type="button" class="btn btn-link btn-sm" (click)="quitarArchivo(archivo)" [attr.aria-label]="'Quitar ' + archivo.name">Quitar</button>
+                      </li>
+                    }
+                  </ul>
+                }
+                @for (error of erroresArchivo; track error) {
+                  <p class="field-error">{{ error }}</p>
+                }
+              }
+              <label class="d-flex gap-2 small mt-3">
+                <input type="checkbox" class="form-check-input mt-1" [checked]="aceptaPrivacidad" (change)="aceptaPrivacidad = marcado($event)">
+                <span>Acepto el aviso de privacidad. Mis datos se usarán únicamente para gestionar este caso conforme a la legislación vigente, y no serán publicados en la consulta pública.</span>
+              </label>
+              @if (enviado && erroresPaso3['privacidad']) { <p class="field-error">{{ erroresPaso3['privacidad'] }}</p> }
+              <div class="mt-3">
+                <app-recaptcha #captcha (token)="onToken($event)" (expirado)="reiniciarCaptcha('La verificación expiró. Márquela de nuevo.')" (fallo)="reiniciarCaptcha('No fue posible cargar el captcha. Intente nuevamente.')" />
+                @if ((enviado && erroresPaso3['captcha']) || errorCaptcha) {
+                  <p class="field-error">{{ errorCaptcha || erroresPaso3['captcha'] }}</p>
+                }
+              </div>
+            }
+
+            @if (errorServidor) {
+              <div class="alert alert-danger" role="alert">{{ errorServidor }}</div>
+            }
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              @if (paso > 1 && !(tipoFijo && paso === 2)) {
+                <button type="button" class="btn btn-outline-civic" (click)="atras()">← Atrás</button>
+              }
+              @if (paso === 1 || paso === 2) {
+                <button type="button" class="btn btn-primary ms-auto" (click)="paso === 1 ? irPaso2() : irPaso3()">Continuar →</button>
+              }
+              @if (paso === 3) {
+                <button type="submit" class="btn btn-primary ms-auto" [disabled]="cargando || !recaptchaToken">
+                  {{ cargando ? 'Enviando caso…' : 'Enviar caso' }}
+                </button>
+              }
+            </div>
+            @if (errorConexion) {
+              <button type="button" class="btn btn-outline-civic w-100 mt-2" (click)="enviar(false)" [disabled]="cargando">Reintentar</button>
+            }
+          </form>
+        }
+      </section>
+    </div>
+  </div>
+
+  @if (duplicado) {
+    <div class="overlay">
+      <div class="panel p-4 w-100" style="max-width: 28rem;">
+        <h2 class="h4">Posible caso similar</h2>
+        <p class="small text-secondary">
+          Detectamos que puede tener un caso similar registrado recientemente. Código: <strong>{{ duplicado }}</strong>. ¿Desea continuar con un nuevo registro?
+        </p>
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <button type="button" class="btn btn-primary" (click)="continuarDuplicado()">Continuar registro</button>
+          <button type="button" class="btn btn-outline-civic" (click)="duplicado = null">Revisar datos</button>
+        </div>
+      </div>
+    </div>
+  }
+</main>

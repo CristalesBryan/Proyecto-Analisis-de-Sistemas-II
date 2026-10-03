@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,7 +9,6 @@ import {
   LoaderCircle,
   Megaphone,
   Paperclip,
-  RefreshCw,
   Scale,
   ShieldAlert,
   Upload,
@@ -17,10 +16,10 @@ import {
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { EMAIL_REGEX } from '../services/auth'
+import { RecaptchaV2, type RecaptchaV2Handle } from '../components/RecaptchaV2'
 import {
   adjuntarDocumentosCaso,
   obtenerAreas,
-  obtenerCaptcha,
   registrarCasoPublico,
   type ApiError,
   type AreaDependencia,
@@ -116,9 +115,9 @@ export function RegistroCasoPage() {
   const [erroresArchivo, setErroresArchivo] = useState<string[]>([])
   const [aceptaPrivacidad, setAceptaPrivacidad] = useState(false)
   const [areas, setAreas] = useState<AreaDependencia[]>([])
-  const [captchaId, setCaptchaId] = useState('')
-  const [captchaPregunta, setCaptchaPregunta] = useState('')
-  const [captchaRespuesta, setCaptchaRespuesta] = useState('')
+  const recaptchaRef = useRef<RecaptchaV2Handle>(null)
+  const [recaptchaToken, setRecaptchaToken] = useState('')
+  const [errorCaptcha, setErrorCaptcha] = useState('')
   const [enviado, setEnviado] = useState(false)
   const [cargando, setCargando] = useState(false)
   const [errorServidor, setErrorServidor] = useState('')
@@ -153,20 +152,11 @@ export function RegistroCasoPage() {
       .catch(() => setAreas([]))
   }, [])
 
-  async function cargarCaptcha() {
-    try {
-      const reto = await obtenerCaptcha()
-      setCaptchaId(reto.captchaId)
-      setCaptchaPregunta(reto.pregunta)
-      setCaptchaRespuesta('')
-    } catch {
-      setCaptchaPregunta('No fue posible cargar la verificación. Intente refrescar.')
-    }
+  function reiniciarCaptcha(mensaje = '') {
+    recaptchaRef.current?.reset()
+    setRecaptchaToken('')
+    setErrorCaptcha(mensaje)
   }
-
-  useEffect(() => {
-    if (paso === 3 && !captchaId) void cargarCaptcha()
-  }, [paso, captchaId])
 
   const erroresPaso2 = useMemo(() => {
     const errores: Record<string, string> = {}
@@ -195,11 +185,11 @@ export function RegistroCasoPage() {
     if (!aceptaPrivacidad) {
       errores.privacidad = 'Debe aceptar el aviso de privacidad para enviar el caso.'
     }
-    if (!captchaRespuesta.trim()) {
-      errores.captcha = 'Resuelva la verificación para continuar.'
+    if (!recaptchaToken.trim()) {
+      errores.captcha = 'Complete la verificación «No soy un robot».'
     }
     return errores
-  }, [aceptaPrivacidad, captchaRespuesta])
+  }, [aceptaPrivacidad, recaptchaToken])
 
   function irPaso2() {
     setEnviado(false)
@@ -259,8 +249,7 @@ export function RegistroCasoPage() {
         denunciado: anonimo ? undefined : denunciado.trim() || undefined,
         esAnonimo: anonimo,
         aceptaPrivacidad,
-        captchaId,
-        captchaRespuesta,
+        recaptchaToken,
         forzarRegistro,
       })
 
@@ -294,7 +283,11 @@ export function RegistroCasoPage() {
           : apiError.message,
       )
       setErrorConexion(Boolean(apiError.conexion))
-      if (apiError.codigo === 'CAPTCHA_INVALIDO') void cargarCaptcha()
+      if (apiError.codigo === 'CAPTCHA_INVALIDO'
+        || apiError.codigo === 'CAPTCHA_NO_DISPONIBLE'
+        || apiError.codigo === 'CAPTCHA_NO_CONFIGURADO') {
+        reiniciarCaptcha(apiError.message || 'La verificación expiró o falló. Márquela de nuevo.')
+      }
     } finally {
       setCargando(false)
     }
@@ -363,9 +356,7 @@ export function RegistroCasoPage() {
                   setArchivos([])
                   setErroresArchivo([])
                   setAceptaPrivacidad(false)
-                  setCaptchaId('')
-                  setCaptchaPregunta('')
-                  setCaptchaRespuesta('')
+                  reiniciarCaptcha()
                   setEnviado(false)
                   setErrorServidor('')
                   setAvisoAdjuntos('')
@@ -689,30 +680,22 @@ export function RegistroCasoPage() {
                       </div>
 
                       <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <label htmlFor="captcha" className="text-sm text-gray-200">
-                            Verificación {captchaPregunta && `· ${captchaPregunta}`}
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => void cargarCaptcha()}
-                            className="rounded-lg p-1 text-gray-300 hover:text-white"
-                            aria-label="Refrescar verificación"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <input
-                          id="captcha"
-                          value={captchaRespuesta}
-                          onChange={(event) => setCaptchaRespuesta(event.target.value)}
-                          className={claseCampo(enviado && Boolean(erroresPaso3.captcha))}
-                          inputMode="numeric"
-                          autoComplete="off"
+                        <RecaptchaV2
+                          ref={recaptchaRef}
+                          onToken={(token) => {
+                            setRecaptchaToken(token || '')
+                            if (token) setErrorCaptcha('')
+                          }}
+                          onExpirado={() =>
+                            reiniciarCaptcha('La verificación expiró. Márquela de nuevo.')
+                          }
+                          onError={() =>
+                            reiniciarCaptcha('No fue posible cargar el captcha. Intente nuevamente.')
+                          }
                         />
-                        {enviado && erroresPaso3.captcha && (
-                          <p className="mt-2 text-xs text-red-200">{erroresPaso3.captcha}</p>
-                        )}
+                        {(enviado && erroresPaso3.captcha) || errorCaptcha ? (
+                          <p className="mt-2 text-xs text-red-200">{errorCaptcha || erroresPaso3.captcha}</p>
+                        ) : null}
                       </div>
                     </div>
                   )}
@@ -763,7 +746,7 @@ export function RegistroCasoPage() {
                     {paso === 3 && (
                       <button
                         type="submit"
-                        disabled={cargando}
+                        disabled={cargando || !recaptchaToken}
                         className="ml-auto inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:opacity-60"
                       >
                         {cargando && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}

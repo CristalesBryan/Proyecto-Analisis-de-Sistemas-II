@@ -9,8 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.municipalidad.qrds.config.DataInitializer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,8 +22,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class QrdsCu06Test {
-
-    private static final Pattern SUMA = Pattern.compile("(\\d+) \\+ (\\d+)");
 
     @Autowired
     private MockMvc mockMvc;
@@ -181,11 +177,6 @@ class QrdsCu06Test {
     }
 
     private String registrarPublico(String area) throws Exception {
-        MvcResult captchaRes = mockMvc.perform(get("/api/casos/captcha")).andReturn();
-        JsonNode captcha = objectMapper.readTree(captchaRes.getResponse().getContentAsString());
-        Matcher matcher = SUMA.matcher(captcha.get("pregunta").asText());
-        matcher.find();
-        int suma = Integer.parseInt(matcher.group(1)) + Integer.parseInt(matcher.group(2));
         String email = "agente-bandeja-" + System.nanoTime() + "@correo.com";
         String body = """
                 {
@@ -195,10 +186,9 @@ class QrdsCu06Test {
                   "areaDependencia":"%s",
                   "descripcion":"Solicito seguimiento municipal a una sugerencia de mejora en ventanilla de atención ciudadana %s.",
                   "aceptaPrivacidad":true,
-                  "captchaId":"%s",
-                  "captchaRespuesta":"%s"
+                  "recaptchaToken":"test-token"
                 }
-                """.formatted(email, area, email, captcha.get("captchaId").asText(), suma);
+                """.formatted(email, area, email);
         MvcResult creado = mockMvc.perform(post("/api/casos/publico")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
@@ -208,19 +198,13 @@ class QrdsCu06Test {
     }
 
     private String registrarAnonimo() throws Exception {
-        MvcResult captchaRes = mockMvc.perform(get("/api/casos/captcha")).andReturn();
-        JsonNode captcha = objectMapper.readTree(captchaRes.getResponse().getContentAsString());
-        Matcher matcher = SUMA.matcher(captcha.get("pregunta").asText());
-        matcher.find();
-        int suma = Integer.parseInt(matcher.group(1)) + Integer.parseInt(matcher.group(2));
         String marca = String.valueOf(System.nanoTime());
         String body = "{"
                 + "\"tipoCaso\":\"Q\","
                 + "\"descripcion\":\"Queja anonima de prueba para bandeja de agente " + marca + ".\","
                 + "\"esAnonimo\":true,"
                 + "\"aceptaPrivacidad\":true,"
-                + "\"captchaId\":\"" + captcha.get("captchaId").asText() + "\","
-                + "\"captchaRespuesta\":\"" + suma + "\""
+                + "\"recaptchaToken\":\"test-token\""
                 + "}";
         MvcResult creado = mockMvc.perform(post("/api/casos/publico")
                         .contentType(MediaType.APPLICATION_JSON)

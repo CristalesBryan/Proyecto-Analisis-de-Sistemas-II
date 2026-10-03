@@ -76,10 +76,7 @@ public final class AuthDtos {
             @NotBlank(message = "Confirme la contraseña.")
             String confirmarPassword,
             boolean aceptaPrivacidad,
-            @NotBlank(message = "Resuelva la verificación para continuar.")
-            String captchaId,
-            @NotBlank(message = "Resuelva la verificación para continuar.")
-            String captchaRespuesta) {
+            String recaptchaToken) {
     }
 
     public record RegistroCiudadanoInicioResponse(String registroId, String mensaje) {

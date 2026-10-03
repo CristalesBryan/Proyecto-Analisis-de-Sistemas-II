@@ -1,0 +1,70 @@
+<main class="page-pad">
+  <header class="topbar d-flex align-items-center justify-content-between mx-auto" style="max-width: 72rem;">
+    <a routerLink="/" class="brand"><span class="brand-mark">QRDS</span></a>
+    <div class="d-flex align-items-center gap-3">
+      <div class="text-end d-none d-sm-block">
+        <p class="mb-0 small">{{ perfil?.nombre || usuario?.nombre }}</p>
+        <p class="mb-0 small text-secondary">Ciudadano</p>
+      </div>
+      <button type="button" class="btn btn-outline-civic btn-sm" (click)="logout()">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <div class="row g-4 mx-auto mt-2" style="max-width: 72rem;">
+    <section class="col-lg-5">
+      <div class="panel p-4 h-100">
+        <p class="small text-secondary mb-1">Mis datos</p>
+        <h1 class="h2">Cuenta de ciudadano</h1>
+        @if (error) {
+          <p class="alert alert-danger mt-3">{{ error }}</p>
+        }
+        @if (!cuenta && !error) {
+          <p class="text-secondary mt-3">Cargando sus datos…</p>
+        }
+        @if (perfil) {
+          <dl class="mt-4 mb-0">
+            <dt class="small text-secondary text-uppercase">Nombre</dt>
+            <dd class="border-bottom pb-2">{{ perfil.nombre }}</dd>
+            <dt class="small text-secondary text-uppercase">Correo</dt>
+            <dd class="border-bottom pb-2">{{ perfil.email }}</dd>
+            <dt class="small text-secondary text-uppercase">Teléfono</dt>
+            <dd class="border-bottom pb-2">{{ perfil.telefono || 'No registrado' }}</dd>
+            <dt class="small text-secondary text-uppercase">DPI / CUI</dt>
+            <dd class="border-bottom pb-2">{{ perfil.dpi || 'No registrado' }}</dd>
+            <dt class="small text-secondary text-uppercase">Verificación de correo</dt>
+            <dd>{{ perfil.emailVerificado ? 'Verificado' : 'Pendiente' }}</dd>
+          </dl>
+        }
+        <a routerLink="/registro-caso" class="btn btn-primary mt-3">Registrar un caso</a>
+      </div>
+    </section>
+    <section class="col-lg-7">
+      <div class="panel p-4 h-100">
+        <p class="small text-secondary mb-1">Seguimiento</p>
+        <h2 class="h3">Mis casos</h2>
+        @if (cuenta && cuenta.casos.length === 0) {
+          <p class="text-secondary mt-3">
+            Aún no hay casos asociados a este correo. Puede registrar una queja, reclamo, denuncia o sugerencia cuando lo necesite.
+          </p>
+        }
+        <ul class="list-unstyled mt-3 mb-0">
+          @for (caso of cuenta?.casos ?? []; track caso.codigoSeguimiento) {
+            <li class="border rounded p-3 mb-2">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <p class="fw-medium mb-0">{{ caso.codigoSeguimiento }}</p>
+                <span class="estado" [class]="'estado estado-' + caso.estado">{{ etiquetaEstado(caso.estado) }}</span>
+              </div>
+              <p class="small text-secondary mb-0 mt-2">
+                {{ caso.tipo }}{{ caso.areaDependencia ? ' · ' + caso.areaDependencia : '' }}
+              </p>
+              <p class="small text-secondary mb-0">Avance {{ caso.avancePorcentaje }}%</p>
+            </li>
+          }
+        </ul>
+      </div>
+    </section>
+  </div>
+  <p class="mx-auto mt-4" style="max-width: 72rem;">
+    <a routerLink="/" class="link-secondary text-decoration-none small">← Volver al portal</a>
+  </p>
+</main>

@@ -8,3 +8,6 @@ data/
 *.log
 .DS_Store
 help.md
+.env
+.env.*
+!.env.example

@@ -1,12 +1,10 @@
 package gt.municipalidad.qrds.controller;
 
-import gt.municipalidad.qrds.dto.CasoPublicoDtos.CaptchaPublico;
 import gt.municipalidad.qrds.dto.CasoPublicoDtos.CasoPublico;
 import gt.municipalidad.qrds.dto.CasoPublicoDtos.ListaSeguimientosPublicos;
 import gt.municipalidad.qrds.dto.CasoPublicoDtos.RegistroCasoRequest;
 import gt.municipalidad.qrds.dto.CasoPublicoDtos.RegistroCasoRespuesta;
 import gt.municipalidad.qrds.dto.DocumentoDtos.CargaDocumentosRespuesta;
-import gt.municipalidad.qrds.service.CaptchaService;
 import gt.municipalidad.qrds.service.CasoPublicoService;
 import gt.municipalidad.qrds.service.CasoRegistroService;
 import gt.municipalidad.qrds.service.DocumentoService;
@@ -31,23 +29,15 @@ public class CasoPublicoController {
 
     private final CasoPublicoService casoPublicoService;
     private final CasoRegistroService casoRegistroService;
-    private final CaptchaService captchaService;
     private final DocumentoService documentoService;
 
     public CasoPublicoController(
             CasoPublicoService casoPublicoService,
             CasoRegistroService casoRegistroService,
-            CaptchaService captchaService,
             DocumentoService documentoService) {
         this.casoPublicoService = casoPublicoService;
         this.casoRegistroService = casoRegistroService;
-        this.captchaService = captchaService;
         this.documentoService = documentoService;
-    }
-
-    @GetMapping("/captcha")
-    public CaptchaPublico captcha() {
-        return captchaService.generar();
     }
 
     @PostMapping("/publico")

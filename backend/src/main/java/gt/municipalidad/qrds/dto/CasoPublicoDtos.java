@@ -14,9 +14,6 @@ public final class CasoPublicoDtos {
     private CasoPublicoDtos() {
     }
 
-    public record CaptchaPublico(String captchaId, String pregunta) {
-    }
-
     public record RegistroCasoRequest(
             @NotNull(message = "Seleccione un tipo de caso.")
             TipoCaso tipoCaso,
@@ -30,10 +27,7 @@ public final class CasoPublicoDtos {
             String denunciado,
             boolean esAnonimo,
             boolean aceptaPrivacidad,
-            @NotBlank(message = "Resuelva la verificación para continuar.")
-            String captchaId,
-            @NotBlank(message = "Resuelva la verificación para continuar.")
-            String captchaRespuesta,
+            String recaptchaToken,
             boolean forzarRegistro) {
     }
 

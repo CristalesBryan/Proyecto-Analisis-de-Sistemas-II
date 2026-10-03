@@ -56,7 +56,6 @@ const TIMEOUT_MS = 8000
 const RUTAS_PUBLICAS = [
   '/api/auth/login',
   '/api/auth/ciudadano/',
-  '/api/casos/captcha',
   '/api/casos/publico',
   '/api/sistema/estado',
   '/api/bitacora/acceso-publico',
@@ -190,8 +189,7 @@ export type RegistroCiudadanoPayload = {
   password: string
   confirmarPassword: string
   aceptaPrivacidad: boolean
-  captchaId: string
-  captchaRespuesta: string
+  recaptchaToken: string
 }
 
 export type CuentaCiudadano = {
@@ -244,11 +242,6 @@ export type AreaDependencia = {
   nombre: string
 }
 
-export type CaptchaPublico = {
-  captchaId: string
-  pregunta: string
-}
-
 export type RegistroCasoPayload = {
   tipoCaso: 'Q' | 'R' | 'D' | 'S'
   nombreCiudadano: string
@@ -259,8 +252,7 @@ export type RegistroCasoPayload = {
   denunciado?: string
   esAnonimo: boolean
   aceptaPrivacidad: boolean
-  captchaId: string
-  captchaRespuesta: string
+  recaptchaToken: string
   forzarRegistro?: boolean
 }
 
@@ -284,11 +276,6 @@ export function codigoSeguimientoValido(codigo: string) {
 export async function obtenerAreas(): Promise<AreaDependencia[]> {
   const res = await apiFetch('/api/catalogos/areas')
   return parsearJson<AreaDependencia[]>(res)
-}
-
-export async function obtenerCaptcha(): Promise<CaptchaPublico> {
-  const res = await apiFetch('/api/casos/captcha')
-  return parsearJson<CaptchaPublico>(res)
 }
 
 export async function registrarCasoPublico(payload: RegistroCasoPayload) {

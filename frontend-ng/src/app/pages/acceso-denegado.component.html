@@ -1,0 +1,26 @@
+<main class="page-pad d-flex flex-column" style="min-height: 100vh;">
+  <header class="d-flex align-items-center justify-content-between mx-auto w-100" style="max-width: 72rem;">
+    <a routerLink="/" class="brand">
+      <span class="brand-mark">QRDS</span>
+      <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+    </a>
+    @if (usuario) {
+      <button type="button" class="btn btn-outline-civic btn-sm" (click)="logout()">Cerrar sesión</button>
+    }
+  </header>
+  <section class="flex-grow-1 d-flex align-items-center mx-auto w-100" style="max-width: 72rem;">
+    <div class="panel p-4 p-md-5" style="max-width: 36rem;">
+      <p class="small text-secondary mb-2">Acceso restringido</p>
+      <h1 class="display-6">Acceso denegado</h1>
+      <p class="text-secondary mt-3">
+        Su rol no tiene permiso para ver este módulo. Si cree que se trata de un error, contacte al administrador del sistema.
+      </p>
+      <div class="d-flex flex-wrap gap-2 mt-4">
+        @if (usuario && destino !== '/acceso-denegado') {
+          <a [routerLink]="destino" class="btn btn-primary">Ir a mi panel</a>
+        }
+        <a routerLink="/" class="btn btn-outline-civic">← Volver al portal</a>
+      </div>
+    </div>
+  </section>
+</main>

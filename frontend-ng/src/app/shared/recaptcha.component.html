@@ -1,0 +1,7 @@
+@if (!siteKey) {
+  <p class="alert alert-warning mb-0" role="alert">
+    Falta configurar la clave pública de reCAPTCHA para mostrar la verificación.
+  </p>
+} @else {
+  <div #host class="recaptcha-v2 overflow-auto"></div>
+}

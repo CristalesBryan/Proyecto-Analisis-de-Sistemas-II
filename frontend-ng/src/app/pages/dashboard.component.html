@@ -1,0 +1,11 @@
+<app-internal-layout>
+  <div class="panel p-4 p-md-5" style="max-width: 40rem;">
+    <p class="small text-secondary mb-2">Sesión activa · {{ rol }}</p>
+    <h1 class="display-6">{{ contenido.titulo }}</h1>
+    <p class="text-secondary mt-3">{{ contenido.descripcion }}</p>
+    <p class="border-top pt-3 mt-4 small text-secondary">
+      Bienvenido, <span class="fw-medium text-dark">{{ usuario?.nombre }}</span>.
+    </p>
+    <a [routerLink]="bandeja" class="btn btn-primary mt-3">Ir a la bandeja de casos</a>
+  </div>
+</app-internal-layout>

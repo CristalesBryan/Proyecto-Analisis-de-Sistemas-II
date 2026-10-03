@@ -1,0 +1,10 @@
+@if (estado === 'validando') {
+  <div class="estado-pantalla">Validando sesión…</div>
+} @else if (estado === 'conexion') {
+  <div class="estado-pantalla">
+    <p class="mb-3">Error de conexión. Verifique su conexión a internet e intente nuevamente.</p>
+    <button type="button" class="btn btn-primary" (click)="reintentar()">Reintentar</button>
+  </div>
+} @else {
+  <router-outlet />
+}

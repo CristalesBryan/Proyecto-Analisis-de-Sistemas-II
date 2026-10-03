@@ -8,8 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.municipalidad.qrds.config.DataInitializer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -24,7 +22,7 @@ import org.springframework.test.web.servlet.MvcResult;
 @ActiveProfiles("test")
 class QrdsCiudadanoAuthTest {
 
-    private static final Pattern SUMA = Pattern.compile("(\\d+) \\+ (\\d+)");
+    private static final String TOKEN = "test-token";
 
     @Autowired
     private MockMvc mockMvc;
@@ -55,7 +53,6 @@ class QrdsCiudadanoAuthTest {
 
     @Test
     void registroRechazaCaptchaInvalido() throws Exception {
-        Captcha captcha = captcha();
         mockMvc.perform(post("/api/auth/ciudadano/verificar-inicio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payloadRegistro(
@@ -63,15 +60,13 @@ class QrdsCiudadanoAuthTest {
                                 "ana.nueva@email.com",
                                 "2999123456789",
                                 DataInitializer.PASSWORD_DEMO,
-                                captcha.id(),
-                                "999")))
+                                "")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("CAPTCHA_INVALIDO"));
     }
 
     @Test
     void registroRechazaPasswordDebil() throws Exception {
-        Captcha captcha = captcha();
         mockMvc.perform(post("/api/auth/ciudadano/verificar-inicio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payloadRegistro(
@@ -79,15 +74,13 @@ class QrdsCiudadanoAuthTest {
                                 "ana.clave@email.com",
                                 "2999123456788",
                                 "clave",
-                                captcha.id(),
-                                captcha.respuesta())))
+                                TOKEN)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("VALIDACION"));
     }
 
     @Test
     void ciudadanoSeRegistraConVerificacionesEIniciaSesion() throws Exception {
-        Captcha captcha = captcha();
         MvcResult inicio = mockMvc.perform(post("/api/auth/ciudadano/verificar-inicio")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payloadRegistro(
@@ -95,8 +88,7 @@ class QrdsCiudadanoAuthTest {
                                 "maria.lopez@email.com",
                                 "2599123456789",
                                 DataInitializer.PASSWORD_DEMO,
-                                captcha.id(),
-                                captcha.respuesta())))
+                                TOKEN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.registroId").isNotEmpty())
                 .andReturn();
@@ -144,26 +136,12 @@ class QrdsCiudadanoAuthTest {
         return objectMapper.readTree(result.getResponse().getContentAsString()).get("token").asText();
     }
 
-    private Captcha captcha() throws Exception {
-        MvcResult result = mockMvc.perform(get("/api/casos/captcha"))
-                .andExpect(status().isOk())
-                .andReturn();
-        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        Matcher matcher = SUMA.matcher(body.get("pregunta").asText());
-        if (!matcher.find()) {
-            throw new IllegalStateException("No se pudo interpretar el captcha");
-        }
-        int suma = Integer.parseInt(matcher.group(1)) + Integer.parseInt(matcher.group(2));
-        return new Captcha(body.get("captchaId").asText(), String.valueOf(suma));
-    }
-
     private String payloadRegistro(
             String nombre,
             String email,
             String dpi,
             String password,
-            String captchaId,
-            String captchaRespuesta) {
+            String recaptchaToken) {
         return """
                 {
                   "nombre":"%s",
@@ -173,12 +151,8 @@ class QrdsCiudadanoAuthTest {
                   "password":"%s",
                   "confirmarPassword":"%s",
                   "aceptaPrivacidad":true,
-                  "captchaId":"%s",
-                  "captchaRespuesta":"%s"
+                  "recaptchaToken":"%s"
                 }
-                """.formatted(nombre, email, dpi, password, password, captchaId, captchaRespuesta);
-    }
-
-    private record Captcha(String id, String respuesta) {
+                """.formatted(nombre, email, dpi, password, password, recaptchaToken);
     }
 }

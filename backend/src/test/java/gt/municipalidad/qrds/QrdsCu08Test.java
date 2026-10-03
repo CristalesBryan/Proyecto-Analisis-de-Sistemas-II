@@ -9,8 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import gt.municipalidad.qrds.config.DataInitializer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,7 +23,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @ActiveProfiles("test")
 class QrdsCu08Test {
 
-    private static final Pattern SUMA = Pattern.compile("(\\d+) \\+ (\\d+)");
     private static final String OBSERVACION_CIERRE =
             "Se archiva el expediente resuelto tras verificación de la atención municipal.";
 
@@ -161,11 +158,6 @@ class QrdsCu08Test {
     }
 
     private String registrarPublico(String area, String email) throws Exception {
-        MvcResult captchaRes = mockMvc.perform(get("/api/casos/captcha")).andReturn();
-        JsonNode captcha = objectMapper.readTree(captchaRes.getResponse().getContentAsString());
-        Matcher matcher = SUMA.matcher(captcha.get("pregunta").asText());
-        matcher.find();
-        int suma = Integer.parseInt(matcher.group(1)) + Integer.parseInt(matcher.group(2));
         String body = """
                 {
                   "tipoCaso":"S",
@@ -174,10 +166,9 @@ class QrdsCu08Test {
                   "areaDependencia":"%s",
                   "descripcion":"Solicito cierre de un expediente de sugerencia municipal ya atendido por ventanilla.",
                   "aceptaPrivacidad":true,
-                  "captchaId":"%s",
-                  "captchaRespuesta":"%s"
+                  "recaptchaToken":"test-token"
                 }
-                """.formatted(email, area, captcha.get("captchaId").asText(), suma);
+                """.formatted(email, area);
         MvcResult creado = mockMvc.perform(post("/api/casos/publico")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))

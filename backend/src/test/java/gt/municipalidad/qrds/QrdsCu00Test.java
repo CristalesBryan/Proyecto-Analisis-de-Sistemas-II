@@ -124,10 +124,10 @@ class QrdsCu00Test {
     }
 
     @Test
-    void captchaPublicoNoSeBloqueaPorTokenInvalido() throws Exception {
-        mockMvc.perform(get("/api/casos/captcha").header("Authorization", "Bearer token-invalido"))
+    void catalogoPublicoNoSeBloqueaPorTokenInvalido() throws Exception {
+        mockMvc.perform(get("/api/catalogos/areas").header("Authorization", "Bearer token-invalido"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.captchaId").isNotEmpty());
+                .andExpect(jsonPath("$[0].codigo").isNotEmpty());
     }
 
     private String tokenDe(String email) throws Exception {

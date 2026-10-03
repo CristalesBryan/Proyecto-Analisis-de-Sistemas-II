@@ -1,0 +1,81 @@
+@if (cargando) {
+  <p class="text-secondary small">Cargando línea de tiempo…</p>
+} @else if (items.length === 0) {
+  <p class="text-secondary small">Aún no hay avances registrados en este caso.</p>
+} @else {
+  <ol class="list-unstyled">
+    @for (item of items; track item.id) {
+      <li class="border rounded p-3 mb-2">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <span class="estado" [class]="'estado tipo-' + item.tipo">{{ item.tipo }}</span>
+          @if (item.porcentajeAvance !== null) {
+            <span class="small text-secondary">{{ item.porcentajeAvance }}% de avance</span>
+          }
+          @if (item.notificado) {
+            <span class="small text-secondary">Notificado</span>
+          }
+        </div>
+        <h3 class="h6 mb-1">{{ item.titulo }}</h3>
+        <p class="small text-secondary mb-1" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ item.descripcion }}</p>
+        <p class="small text-secondary mb-0">
+          {{ item.usuarioNombre || 'Agente' }} · {{ formatFechaHora(item.creadoEn) }}
+          {{ item.seguimientoPadreId ? ' · corrige #' + item.seguimientoPadreId : '' }}
+        </p>
+        @if (item.adjunto) {
+          <button type="button" class="btn btn-link btn-sm px-0" (click)="descargar(item)">
+            {{ item.adjunto.nombreArchivo }}
+          </button>
+        }
+      </li>
+    }
+  </ol>
+}
+
+@if (puedeRegistrar) {
+  <form class="border rounded p-3" (submit)="enviar($event)">
+    <h3 class="h5">Registrar avance</h3>
+    @if (excepcional) {
+      <p class="alert alert-warning">El caso está finalizado. Solo puede agregar una nota interna con justificación.</p>
+    }
+    <select class="form-select mb-2" name="tipo" [(ngModel)]="tipo" [disabled]="excepcional" aria-label="Tipo de seguimiento">
+      <option value="PUBLICA">Pública (visible al ciudadano)</option>
+      <option value="INTERNA">Interna</option>
+      <option value="CORRECCION">Corrección</option>
+    </select>
+    @if (tipo === 'CORRECCION') {
+      <select class="form-select mb-2" name="padre" [(ngModel)]="padreId" aria-label="Seguimiento a corregir">
+        <option value="">Seleccione el seguimiento a corregir</option>
+        @for (item of items; track item.id) {
+          <option [value]="item.id">#{{ item.id }} · {{ item.titulo }}</option>
+        }
+      </select>
+    }
+    <input class="form-control mb-2" name="titulo" [(ngModel)]="titulo" placeholder="Título (5 a 120 caracteres)" maxlength="120">
+    <textarea class="form-control mb-2" name="descripcion" rows="4" [(ngModel)]="descripcion" placeholder="Descripción del avance (20 a 2000 caracteres)" maxlength="2000"></textarea>
+    <label class="form-label">Porcentaje de avance
+      <input class="form-control mt-1" name="porcentaje" type="number" min="0" max="100" step="1" [(ngModel)]="porcentaje">
+    </label>
+    @if (excepcional) {
+      <textarea class="form-control mb-2" name="justificacion" rows="3" [(ngModel)]="justificacion" placeholder="Justificación excepcional (mín. 20 caracteres)"></textarea>
+    }
+    @if (tipo === 'PUBLICA' && abierto && !caso.esAnonimo) {
+      <label class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="notificar" [(ngModel)]="notificar">
+        <span class="form-check-label">Notificar al ciudadano por correo</span>
+      </label>
+    }
+    @if (caso.esAnonimo && tipo === 'PUBLICA') {
+      <p class="small text-secondary">Caso anónimo: no se envía notificación por correo.</p>
+    }
+    <input class="form-control mb-3" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="elegirArchivo($event)">
+    <button type="submit" class="btn btn-primary" [disabled]="enviando">
+      {{ enviando ? 'Guardando…' : 'Registrar seguimiento' }}
+    </button>
+  </form>
+} @else {
+  <p class="text-secondary small">
+    {{ caso.estado === 'RECIBIDO'
+      ? 'El caso debe pasar a revisión o proceso para registrar seguimientos.'
+      : 'No se pueden registrar seguimientos en casos finalizados.' }}
+  </p>
+}

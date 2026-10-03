@@ -36,7 +36,7 @@ public class CiudadanoRegistroService {
             "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{10,}$");
 
     private final UsuarioRepository usuarioRepository;
-    private final CaptchaService captchaService;
+    private final RecaptchaService recaptchaService;
     private final PasswordEncoder passwordEncoder;
     private final BitacoraAccesoService bitacoraAccesoService;
     private final String codigoPrueba;
@@ -45,19 +45,19 @@ public class CiudadanoRegistroService {
 
     public CiudadanoRegistroService(
             UsuarioRepository usuarioRepository,
-            CaptchaService captchaService,
+            RecaptchaService recaptchaService,
             PasswordEncoder passwordEncoder,
             BitacoraAccesoService bitacoraAccesoService,
             @Value("${qrds.registro.codigo-prueba:}") String codigoPrueba) {
         this.usuarioRepository = usuarioRepository;
-        this.captchaService = captchaService;
+        this.recaptchaService = recaptchaService;
         this.passwordEncoder = passwordEncoder;
         this.bitacoraAccesoService = bitacoraAccesoService;
         this.codigoPrueba = codigoPrueba == null ? "" : codigoPrueba.trim();
     }
 
     public RegistroCiudadanoInicioResponse iniciar(RegistroCiudadanoRequest request, String ip, String userAgent) {
-        captchaService.verificar(request.captchaId(), request.captchaRespuesta());
+        recaptchaService.verificar(request.recaptchaToken());
         Map<String, String> errores = validar(request);
         if (!errores.isEmpty()) {
             throw new ApiException(

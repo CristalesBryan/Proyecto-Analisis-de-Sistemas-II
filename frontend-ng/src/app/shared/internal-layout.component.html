@@ -1,0 +1,41 @@
+<main class="page-pad">
+  <header class="topbar d-flex align-items-center justify-content-between mx-auto" style="max-width: 72rem;">
+    <a class="brand" [routerLink]="bandeja">
+      <span class="brand-mark">QRDS</span>
+    </a>
+    <div class="d-flex align-items-center gap-3">
+      <div class="text-end d-none d-sm-block">
+        <p class="mb-0 small">{{ usuario?.nombre }}</p>
+        <p class="mb-0 small text-secondary">
+          {{ rol }}{{ usuario?.areaDependencia ? ' · ' + usuario?.areaDependencia : '' }}
+        </p>
+      </div>
+      <button type="button" class="btn btn-outline-civic btn-sm" (click)="logout()">
+        Cerrar sesión
+      </button>
+    </div>
+  </header>
+
+  <div class="row g-4 mx-auto mt-1" style="max-width: 72rem;">
+    <aside class="col-lg-2">
+      <nav class="panel side-nav p-2 d-flex flex-row flex-lg-column gap-1">
+        @if (rol !== 'AGENTE') {
+          <a [routerLink]="inicio" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
+        }
+        <a [routerLink]="bandeja" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
+          {{ rol === 'AGENTE' ? 'Mis casos' : 'Bandeja de casos' }}
+        </a>
+        @if (rol === 'ADMIN') {
+          <span class="text-secondary">Usuarios</span>
+          <span class="text-secondary">Bitácoras</span>
+        }
+        @if (rol === 'SUPERVISOR') {
+          <span class="text-secondary">Reportes</span>
+        }
+      </nav>
+    </aside>
+    <section class="col-lg-10 min-w-0">
+      <ng-content />
+    </section>
+  </div>
+</main>

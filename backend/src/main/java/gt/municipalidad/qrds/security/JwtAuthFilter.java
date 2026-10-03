@@ -87,7 +87,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 || path.equals("/api/auth/ciudadano/confirmar")
                 || path.equals("/api/bitacora/acceso-publico")
                 || path.startsWith("/api/catalogos/")
-                || path.equals("/api/casos/captcha")
                 || path.equals("/api/casos/publico")
                 || path.startsWith("/api/casos/publico/")
                 || path.startsWith("/h2-console");

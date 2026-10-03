@@ -1,0 +1,73 @@
+<main class="auth-scene page-pad d-flex">
+  <div class="mx-auto d-flex flex-column w-100" style="max-width: 72rem;">
+    <header class="d-flex align-items-center justify-content-between">
+      <a routerLink="/" class="brand">
+        <span class="brand-mark">QRDS</span>
+        <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+      </a>
+      <a routerLink="/" class="link-secondary text-decoration-none small">← Volver al portal</a>
+    </header>
+
+    <div class="flex-grow-1 d-flex align-items-center justify-content-center py-5">
+      <section class="panel p-4 p-sm-5 w-100 login-card" style="max-width: 420px;" [class.login-shake]="sacudir" (animationend)="sacudir = false">
+        <p class="small text-secondary mb-2">Ciudadanos y personal municipal</p>
+        <h1 class="h2 mb-2">Iniciar sesión</h1>
+        <p class="small text-secondary">
+          Ingresa con tu correo y contraseña. Si eres ciudadano, puedes crear una cuenta
+          para ver tus datos y el seguimiento de tus casos.
+        </p>
+
+        <form novalidate autocomplete="off" (submit)="enviar($event)">
+          <div class="mb-3">
+            <label class="form-label" for="correo-acceso">Correo electrónico</label>
+            <input id="correo-acceso" name="qrds-correo" class="form-control" type="text" inputmode="email"
+              [(ngModel)]="email" placeholder="usuario@municipalidad.gt" autocomplete="off"
+              (blur)="emailTocado = true" [attr.aria-invalid]="(enviado || emailTocado) && !emailValido">
+            @if ((enviado || emailTocado) && !emailValido) {
+              <p id="email-error" class="field-error">Ingresa un correo electrónico válido.</p>
+            }
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="clave-acceso">Contraseña</label>
+            <div class="input-group">
+              <input id="clave-acceso" name="qrds-clave" class="form-control" [type]="mostrarPassword ? 'text' : 'password'"
+                [(ngModel)]="password" autocomplete="new-password" (blur)="passwordTocado = true">
+              <button type="button" class="btn btn-outline-secondary" (click)="mostrarPassword = !mostrarPassword"
+                [attr.aria-label]="mostrarPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                {{ mostrarPassword ? 'Ocultar' : 'Ver' }}
+              </button>
+            </div>
+            @if ((enviado || passwordTocado) && !passwordValida) {
+              <p class="field-error">Ingresa tu contraseña.</p>
+            }
+          </div>
+
+          @if (errorServidor) {
+            <div class="alert mb-3" [class.alert-warning]="avisoExpirada" [class.alert-danger]="!avisoExpirada" role="alert">
+              {{ errorServidor }}
+            </div>
+          }
+
+          <button type="submit" class="btn btn-primary w-100" [disabled]="cargando || !formularioValido">
+            {{ cargando ? 'Verificando acceso…' : 'Iniciar sesión' }}
+          </button>
+
+          @if (errorConexion) {
+            <button type="button" class="btn btn-outline-civic w-100 mt-2" (click)="autenticar()" [disabled]="cargando || !formularioValido">
+              Reintentar
+            </button>
+          }
+        </form>
+
+        <p class="text-center small mt-4 mb-2">
+          ¿Aún no tienes cuenta de ciudadano?
+          <a routerLink="/registro-ciudadano">Crear cuenta</a>
+        </p>
+        <p class="text-center mb-0">
+          <a routerLink="/" class="small link-secondary text-decoration-none">← Volver al portal</a>
+        </p>
+      </section>
+    </div>
+  </div>
+</main>

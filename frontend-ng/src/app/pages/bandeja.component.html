@@ -1,0 +1,116 @@
+<app-internal-layout>
+  <div class="mb-4">
+    <p class="small text-secondary mb-1">Gestión interna · {{ usuario?.rol }}</p>
+    <h1 class="h2 mb-0">{{ titulo }}</h1>
+  </div>
+
+  <form class="panel p-3 mb-4" (submit)="$event.preventDefault()">
+    <div class="row g-2">
+      <div class="col-sm-6 col-lg-3">
+        <input class="form-control" placeholder="Código de seguimiento" [value]="filtros.codigo || ''"
+          (input)="actualizar('codigo', texto($event).toUpperCase())" aria-label="Buscar por código">
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <select class="form-select" [value]="filtros.estado || ''" (change)="actualizar('estado', texto($event))" aria-label="Filtrar por estado">
+          <option value="">Todos los estados</option>
+          @for (estado of estados; track estado) {
+            <option [value]="estado">{{ etiquetaEstado(estado) }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <select class="form-select" [value]="filtros.tipo || ''" (change)="actualizar('tipo', texto($event))" aria-label="Filtrar por tipo">
+          <option value="">Todos los tipos</option>
+          @for (tipo of tipos; track tipo.codigo) {
+            <option [value]="tipo.codigo">{{ tipo.nombre }}</option>
+          }
+        </select>
+      </div>
+      @if (usuario?.rol === 'ADMIN') {
+        <div class="col-sm-6 col-lg-3">
+          <select class="form-select" [value]="filtros.area || ''" (change)="actualizar('area', texto($event))" aria-label="Filtrar por área">
+            <option value="">Todas las áreas</option>
+            @for (area of areas; track area.codigo) {
+              <option [value]="area.codigo">{{ area.nombre }}</option>
+            }
+          </select>
+        </div>
+      }
+      <div class="col-sm-6 col-lg-3">
+        <input type="date" class="form-control" [value]="filtros.desde || ''" (change)="actualizar('desde', texto($event))" aria-label="Desde">
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <input type="date" class="form-control" [value]="filtros.hasta || ''" (change)="actualizar('hasta', texto($event))" aria-label="Hasta">
+      </div>
+      <div class="col-sm-6 col-lg-3 d-flex align-items-center">
+        <label class="form-check mb-0">
+          <input type="checkbox" class="form-check-input" [checked]="filtros.sinAsignar" (change)="actualizar('sinAsignar', marcado($event))">
+          <span class="form-check-label">Sin asignar</span>
+        </label>
+      </div>
+    </div>
+  </form>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+      <button type="button" class="btn btn-link btn-sm" (click)="cargar()">Reintentar</button>
+    </div>
+  }
+
+  <div class="panel table-responsive">
+    <table class="table table-hover mb-0 bandeja">
+      <thead>
+        <tr>
+          <th (click)="ordenar('codigo')">Código</th>
+          <th (click)="ordenar('tipo')">Tipo</th>
+          <th>Ciudadano</th>
+          <th (click)="ordenar('area')">Área</th>
+          <th (click)="ordenar('estado')">Estado</th>
+          <th>Agente</th>
+          <th (click)="ordenar('fechaRegistro')">Fecha</th>
+          <th>Plazo</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (cargando) {
+          <tr><td colspan="9" class="text-center text-secondary py-5">Cargando bandeja…</td></tr>
+        } @else if (casos.length === 0) {
+          <tr><td colspan="9" class="text-center text-secondary py-5">No se encontraron casos con los criterios indicados.</td></tr>
+        } @else {
+          @for (caso of casos; track caso.id) {
+            <tr>
+              <td class="fw-medium">{{ caso.codigoSeguimiento }}</td>
+              <td>{{ caso.tipo }}</td>
+              <td>{{ caso.ciudadano }}</td>
+              <td>{{ caso.areaNombre }}</td>
+              <td><span class="estado" [class]="'estado estado-' + caso.estado">{{ etiquetaEstado(caso.estado) }}</span></td>
+              <td class="text-secondary">{{ caso.agenteNombre }}</td>
+              <td class="text-nowrap text-secondary">{{ formatFechaHora(caso.fechaRegistro) }}</td>
+              <td>
+                @if (!caso.plazo || caso.plazo.diasRestantes === null) {
+                  <span class="small text-secondary">Sin plazo</span>
+                } @else {
+                  <span class="plazo" [class]="'plazo plazo-' + caso.plazo.semaforo">
+                    {{ caso.plazo.vencido ? 'Vencido' : dias(caso.plazo.diasRestantes) }}
+                  </span>
+                }
+              </td>
+              <td><a [routerLink]="destino(caso)">Ver detalle</a></td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="d-flex align-items-center justify-content-between mt-3 small text-secondary">
+    <p class="mb-0">{{ total }} caso{{ total === 1 ? '' : 's' }}</p>
+    <div class="d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="pagina <= 1" (click)="irPagina(-1)">Anterior</button>
+      <span>{{ pagina }} / {{ paginas }}</span>
+      <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="pagina >= paginas" (click)="irPagina(1)">Siguiente</button>
+    </div>
+  </div>
+</app-internal-layout>

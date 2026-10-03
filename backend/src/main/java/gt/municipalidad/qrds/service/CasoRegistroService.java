@@ -31,7 +31,7 @@ public class CasoRegistroService {
 
     private final CasoRepository casoRepository;
     private final AreaDependenciaRepository areaRepository;
-    private final CaptchaService captchaService;
+    private final RecaptchaService recaptchaService;
     private final CorrelativoService correlativoService;
     private final PlazoService plazoService;
     private final BitacoraCasoService bitacoraCasoService;
@@ -40,14 +40,14 @@ public class CasoRegistroService {
     public CasoRegistroService(
             CasoRepository casoRepository,
             AreaDependenciaRepository areaRepository,
-            CaptchaService captchaService,
+            RecaptchaService recaptchaService,
             CorrelativoService correlativoService,
             PlazoService plazoService,
             BitacoraCasoService bitacoraCasoService,
             NotificacionService notificacionService) {
         this.casoRepository = casoRepository;
         this.areaRepository = areaRepository;
-        this.captchaService = captchaService;
+        this.recaptchaService = recaptchaService;
         this.correlativoService = correlativoService;
         this.plazoService = plazoService;
         this.bitacoraCasoService = bitacoraCasoService;
@@ -56,7 +56,7 @@ public class CasoRegistroService {
 
     @Transactional
     public RegistroCasoRespuesta registrar(RegistroCasoRequest request, String ip) {
-        captchaService.verificar(request.captchaId(), request.captchaRespuesta());
+        recaptchaService.verificar(request.recaptchaToken());
 
         boolean anonimo = request.esAnonimo();
         Map<String, String> errores = validar(request, anonimo);

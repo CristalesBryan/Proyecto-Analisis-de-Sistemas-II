@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { ArrowLeft, Eye, EyeOff, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { ArrowLeft, Eye, EyeOff, LoaderCircle, ShieldCheck } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   confirmarRegistroCiudadano,
   iniciarRegistroCiudadano,
-  obtenerCaptcha,
   type ApiError,
 } from '../services/api'
 import { EMAIL_REGEX } from '../services/auth'
+import { RecaptchaV2, type RecaptchaV2Handle } from '../components/RecaptchaV2'
 
 const VIDEO_URL =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
@@ -29,9 +29,9 @@ export function RegistroCiudadanoPage() {
   const [confirmarPassword, setConfirmarPassword] = useState('')
   const [mostrarPassword, setMostrarPassword] = useState(false)
   const [aceptaPrivacidad, setAceptaPrivacidad] = useState(false)
-  const [captchaId, setCaptchaId] = useState('')
-  const [captchaPregunta, setCaptchaPregunta] = useState('')
-  const [captchaRespuesta, setCaptchaRespuesta] = useState('')
+  const recaptchaRef = useRef<RecaptchaV2Handle>(null)
+  const [recaptchaToken, setRecaptchaToken] = useState('')
+  const [errorCaptcha, setErrorCaptcha] = useState('')
   const [codigo, setCodigo] = useState('')
   const [registroId, setRegistroId] = useState('')
   const [enviado, setEnviado] = useState(false)
@@ -39,19 +39,10 @@ export function RegistroCiudadanoPage() {
   const [errorServidor, setErrorServidor] = useState('')
   const [erroresApi, setErroresApi] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    void cargarCaptcha()
-  }, [])
-
-  async function cargarCaptcha() {
-    try {
-      const reto = await obtenerCaptcha()
-      setCaptchaId(reto.captchaId)
-      setCaptchaPregunta(reto.pregunta)
-      setCaptchaRespuesta('')
-    } catch {
-      setCaptchaPregunta('No fue posible cargar la verificación. Intente refrescar.')
-    }
+  function reiniciarCaptcha(mensaje = '') {
+    recaptchaRef.current?.reset()
+    setRecaptchaToken('')
+    setErrorCaptcha(mensaje)
   }
 
   const errores = useMemo(() => {
@@ -66,9 +57,9 @@ export function RegistroCiudadanoPage() {
     }
     if (password !== confirmarPassword) lista.confirmarPassword = 'Las contraseñas no coinciden.'
     if (!aceptaPrivacidad) lista.privacidad = 'Debe aceptar el aviso de privacidad.'
-    if (!captchaRespuesta.trim()) lista.captcha = 'Resuelva la verificación para continuar.'
+    if (!recaptchaToken.trim()) lista.captcha = 'Complete la verificación «No soy un robot».'
     return lista
-  }, [nombre, email, telefono, dpi, password, confirmarPassword, aceptaPrivacidad, captchaRespuesta])
+  }, [nombre, email, telefono, dpi, password, confirmarPassword, aceptaPrivacidad, recaptchaToken])
 
   async function enviarDatos(event: FormEvent) {
     event.preventDefault()
@@ -86,8 +77,7 @@ export function RegistroCiudadanoPage() {
         password,
         confirmarPassword,
         aceptaPrivacidad,
-        captchaId,
-        captchaRespuesta,
+        recaptchaToken,
       })
       setRegistroId(respuesta.registroId)
       setPaso(2)
@@ -96,7 +86,13 @@ export function RegistroCiudadanoPage() {
       const apiError = error as ApiError
       setErrorServidor(apiError.message)
       if (apiError.errores) setErroresApi(apiError.errores)
-      void cargarCaptcha()
+      reiniciarCaptcha(
+        apiError.codigo === 'CAPTCHA_INVALIDO'
+          || apiError.codigo === 'CAPTCHA_NO_DISPONIBLE'
+          || apiError.codigo === 'CAPTCHA_NO_CONFIGURADO'
+          ? apiError.message || 'La verificación expiró o falló. Márquela de nuevo.'
+          : 'Vuelva a completar la verificación «No soy un robot».',
+      )
     } finally {
       setCargando(false)
     }
@@ -261,32 +257,20 @@ export function RegistroCiudadanoPage() {
                 {enviado && errores.privacidad && (
                   <p className="text-xs text-red-200">{errores.privacidad}</p>
                 )}
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <label htmlFor="captcha" className="text-sm text-gray-200">
-                      Verificación {captchaPregunta && `· ${captchaPregunta}`}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => void cargarCaptcha()}
-                      className="rounded-lg p-1 text-gray-300 hover:text-white"
-                      aria-label="Refrescar verificación"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <input
-                    id="captcha"
-                    value={captchaRespuesta}
-                    onChange={(event) => setCaptchaRespuesta(event.target.value)}
-                    className={clase(errores.captcha)}
-                    inputMode="numeric"
-                    autoComplete="off"
-                  />
-                  {enviado && errores.captcha && (
-                    <p className="mt-2 text-xs text-red-200">{errores.captcha}</p>
-                  )}
-                </div>
+                <RecaptchaV2
+                  ref={recaptchaRef}
+                  onToken={(token) => {
+                    setRecaptchaToken(token || '')
+                    if (token) setErrorCaptcha('')
+                  }}
+                  onExpirado={() => reiniciarCaptcha('La verificación expiró. Márquela de nuevo.')}
+                  onError={() =>
+                    reiniciarCaptcha('No fue posible cargar el captcha. Intente nuevamente.')
+                  }
+                />
+                {(enviado && errores.captcha) || errorCaptcha ? (
+                  <p className="text-xs text-red-200">{errorCaptcha || errores.captcha}</p>
+                ) : null}
                 {errorServidor && (
                   <div className="rounded-lg border border-red-300/30 bg-red-950/40 px-4 py-3 text-sm text-red-100" role="alert">
                     {errorServidor}
@@ -294,7 +278,7 @@ export function RegistroCiudadanoPage() {
                 )}
                 <button
                   type="submit"
-                  disabled={cargando}
+                  disabled={cargando || !recaptchaToken}
                   className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-medium text-black transition-colors hover:bg-gray-100 disabled:opacity-50"
                 >
                   {cargando && <LoaderCircle className="h-4 w-4 animate-spin" />}

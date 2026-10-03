@@ -1,0 +1,106 @@
+<main class="auth-scene page-pad d-flex">
+  <div class="mx-auto d-flex flex-column w-100" style="max-width: 72rem;">
+    <header class="d-flex align-items-center justify-content-between">
+      <a routerLink="/" class="brand">
+        <span class="brand-mark">QRDS</span>
+        <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+      </a>
+      <a routerLink="/login" class="link-secondary text-decoration-none small">← Ir a iniciar sesión</a>
+    </header>
+
+    <div class="flex-grow-1 d-flex align-items-center justify-content-center py-5">
+      <section class="panel p-4 p-sm-5 w-100 login-card" style="max-width: 480px;">
+        <p class="small text-secondary mb-2">Cuenta de ciudadano</p>
+        <h1 class="h2">{{ paso === 1 ? 'Crear cuenta' : 'Verificar correo' }}</h1>
+        <p class="small text-secondary">
+          {{ paso === 1
+            ? 'La cuenta se crea con verificación humana, contraseña segura, DPI y aviso de privacidad.'
+            : 'Ingrese el código de seis dígitos enviado a su correo para activar la cuenta. En desarrollo, el código también aparece en la consola del backend.' }}
+        </p>
+
+        @if (paso === 1) {
+          <form novalidate autocomplete="off" (submit)="enviarDatos($event)">
+            <div class="mb-3">
+              <label class="form-label" for="nombre">Nombre completo</label>
+              <input id="nombre" name="nombre" class="form-control" [(ngModel)]="nombre" autocomplete="off">
+              @if (enviado && (errores['nombre'] || erroresApi['nombre'])) {
+                <p class="field-error">{{ errores['nombre'] || erroresApi['nombre'] }}</p>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="correo-registro">Correo electrónico</label>
+              <input id="correo-registro" name="email" class="form-control" [(ngModel)]="email" autocomplete="off">
+              @if (enviado && (errores['email'] || erroresApi['email'])) {
+                <p class="field-error">{{ errores['email'] || erroresApi['email'] }}</p>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="telefono">Teléfono</label>
+              <input id="telefono" name="telefono" class="form-control" [(ngModel)]="telefono" autocomplete="off">
+              @if (enviado && (errores['telefono'] || erroresApi['telefono'])) {
+                <p class="field-error">{{ errores['telefono'] || erroresApi['telefono'] }}</p>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="dpi">DPI / CUI</label>
+              <input id="dpi" name="dpi" class="form-control" [(ngModel)]="dpi" autocomplete="off">
+              @if (enviado && (errores['dpi'] || erroresApi['dpi'])) {
+                <p class="field-error">{{ errores['dpi'] || erroresApi['dpi'] }}</p>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="password">Contraseña</label>
+              <div class="input-group">
+                <input id="password" name="password" class="form-control" [type]="mostrarPassword ? 'text' : 'password'" [(ngModel)]="password" autocomplete="new-password">
+                <button type="button" class="btn btn-outline-secondary" (click)="mostrarPassword = !mostrarPassword">
+                  {{ mostrarPassword ? 'Ocultar' : 'Ver' }}
+                </button>
+              </div>
+              @if (enviado && errores['password']) {
+                <p class="field-error">{{ errores['password'] }}</p>
+              }
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="confirmar">Confirmar contraseña</label>
+              <input id="confirmar" name="confirmarPassword" type="password" class="form-control" [(ngModel)]="confirmarPassword" autocomplete="new-password">
+              @if (enviado && errores['confirmarPassword']) {
+                <p class="field-error">{{ errores['confirmarPassword'] }}</p>
+              }
+            </div>
+            <label class="d-flex gap-2 small mb-2">
+              <input type="checkbox" name="privacidad" [(ngModel)]="aceptaPrivacidad" class="form-check-input mt-1">
+              <span>Acepto el aviso de privacidad. Mis datos se usarán para identificar mi cuenta y consultar mis casos.</span>
+            </label>
+            @if (enviado && errores['privacidad']) {
+              <p class="field-error">{{ errores['privacidad'] }}</p>
+            }
+            <app-recaptcha #captcha (token)="onToken($event)" (expirado)="reiniciarCaptcha('La verificación expiró. Márquela de nuevo.')" (fallo)="reiniciarCaptcha('No fue posible cargar el captcha. Intente nuevamente.')" />
+            @if ((enviado && errores['captcha']) || errorCaptcha) {
+              <p class="field-error">{{ errorCaptcha || errores['captcha'] }}</p>
+            }
+            @if (errorServidor) {
+              <div class="alert alert-danger mt-3" role="alert">{{ errorServidor }}</div>
+            }
+            <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="cargando || !recaptchaToken">
+              {{ cargando ? 'Validando…' : 'Continuar' }}
+            </button>
+          </form>
+        } @else {
+          <form novalidate (submit)="confirmarCodigo($event)">
+            <label class="form-label" for="codigo">Código de verificación</label>
+            <input id="codigo" name="codigo" class="form-control" [(ngModel)]="codigo">
+            @if (enviado && !codigo.trim()) {
+              <p class="field-error">Ingrese el código de seis dígitos.</p>
+            }
+            @if (errorServidor) {
+              <div class="alert alert-danger mt-3" role="alert">{{ errorServidor }}</div>
+            }
+            <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="cargando">
+              {{ cargando ? 'Activando cuenta…' : 'Activar cuenta' }}
+            </button>
+          </form>
+        }
+      </section>
+    </div>
+  </div>
+</main>

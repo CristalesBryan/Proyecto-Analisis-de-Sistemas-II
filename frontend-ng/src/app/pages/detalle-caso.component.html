@@ -1,0 +1,285 @@
+<app-internal-layout>
+  <a [routerLink]="bandeja" class="link-secondary text-decoration-none small d-inline-block mb-3">← Volver a la bandeja</a>
+
+  @if (cargando) {
+    <p class="text-secondary">Cargando detalle…</p>
+  }
+  @if (error) {
+    <div class="alert alert-danger" role="alert">
+      {{ error }}
+      <button type="button" class="btn btn-link btn-sm" (click)="cargar()">Reintentar</button>
+    </div>
+  }
+  @if (exito) {
+    <div class="alert alert-success">{{ exito }}</div>
+  }
+
+  @if (caso) {
+    <div class="row g-4">
+      <div class="col-xl-8">
+        <div class="panel p-4 mb-4">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+            <div>
+              <p class="small text-secondary mb-1">
+                {{ caso.tipo }} · {{ caso.areaNombre }} · {{ caso.prioridad }}{{ caso.escalado ? ' · Escalado' : '' }}
+              </p>
+              <h1 class="h2 mb-0">{{ caso.codigoSeguimiento }}</h1>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+              <span class="estado" [class]="'estado estado-' + caso.estado">{{ etiquetaEstado(caso.estado) }}</span>
+              @if (!caso.plazo || caso.plazo.diasRestantes === null) {
+                <span class="small text-secondary">Sin plazo</span>
+              } @else {
+                <span class="plazo" [class]="'plazo plazo-' + caso.plazo.semaforo">
+                  {{ caso.plazo.vencido ? 'Vencido' : caso.plazo.diasRestantes + ' día(s) hábil(es)' }}
+                </span>
+              }
+            </div>
+          </div>
+
+          @if (alertaPlazo) {
+            <div class="alert" [class.alert-danger]="caso.plazo?.vencido" [class.alert-warning]="!caso.plazo?.vencido" role="status">
+              {{ caso.plazo?.vencido
+                ? 'El plazo de respuesta venció el ' + formatFecha(caso.fechaLimiteRespuesta) + '. Escale o registre una prórroga.'
+                : 'Quedan ' + caso.plazo?.diasRestantes + ' día(s) hábil(es). Fecha límite: ' + formatFecha(caso.fechaLimiteRespuesta) + '.' }}
+            </div>
+          }
+
+          <div class="mb-3">
+            <div class="d-flex justify-content-between small text-secondary mb-1">
+              <span>Avance</span><span>{{ caso.avancePorcentaje || 0 }}%</span>
+            </div>
+            <div class="progress-thin"><span [style.width.%]="caso.avancePorcentaje || 0"></span></div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2 border-top pt-3">
+            @for (item of pestanas; track item.id) {
+              <button type="button" class="btn btn-sm" [class.btn-primary]="pestana === item.id" [class.btn-outline-civic]="pestana !== item.id" (click)="cambiarPestana(item.id)">
+                {{ item.label }}
+              </button>
+            }
+          </div>
+        </div>
+
+        @if (pestana === 'resumen') {
+          <div class="panel p-4 mb-4">
+            <dl class="row small mb-0">
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Ciudadano</dt><dd>{{ caso.esAnonimo ? 'Anónimo' : caso.nombreCiudadano }}</dd></div>
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Correo</dt><dd class="text-break">{{ caso.emailCiudadano || '—' }}</dd></div>
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Teléfono</dt><dd>{{ caso.telefono || '—' }}</dd></div>
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Agente</dt><dd>{{ caso.agenteNombre }}</dd></div>
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Registro</dt><dd>{{ formatFechaHora(caso.fechaRegistro) }}</dd></div>
+              <div class="col-sm-6 mb-2"><dt class="text-secondary">Fecha límite</dt><dd>{{ formatFecha(caso.fechaLimiteRespuesta) }}</dd></div>
+              <div class="col-12 mb-2"><dt class="text-secondary">Última actualización</dt><dd>{{ formatFechaHora(caso.fechaUltimaActualizacion) }}</dd></div>
+              @if (caso.fechaProrroga) {
+                <div class="col-sm-6"><dt class="text-secondary">Última prórroga</dt><dd>{{ formatFecha(caso.fechaProrroga) }}</dd></div>
+              }
+            </dl>
+            <p class="mt-3 small text-secondary" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ caso.descripcion }}</p>
+            @if (caso.denunciado) {
+              <p class="small text-secondary">Denunciado: {{ caso.denunciado }}</p>
+            }
+            @if (!finalizado) {
+              <div class="border-top pt-3 mt-3">
+                @if (!editando) {
+                  <button type="button" class="btn btn-outline-civic" (click)="editando = true">Modificar</button>
+                } @else {
+                  <form (submit)="guardarModificacion($event)">
+                    <h2 class="h5">Modificar datos del caso</h2>
+                    @if (!caso.esAnonimo) {
+                      <input class="form-control mb-2" [value]="nombreEdit" (input)="nombreEdit = valor($event)" placeholder="Nombre del ciudadano">
+                    }
+                    <input class="form-control mb-2" [value]="emailEdit" (input)="emailEdit = valor($event)" placeholder="Correo">
+                    <input class="form-control mb-2" [value]="telefonoEdit" (input)="telefonoEdit = valor($event)" placeholder="Teléfono">
+                    @if (usuario?.rol !== 'AGENTE') {
+                      <select class="form-select mb-2" [value]="areaEdit" (change)="areaEdit = valor($event)" aria-label="Área">
+                        @for (area of areas; track area.codigo) {
+                          <option [value]="area.codigo">{{ area.nombre }}</option>
+                        }
+                      </select>
+                    }
+                    <select class="form-select mb-2" [value]="prioridadEdit" (change)="prioridadEdit = valor($event)" aria-label="Prioridad">
+                      <option value="BAJA">BAJA</option>
+                      <option value="MEDIA">MEDIA</option>
+                      <option value="ALTA">ALTA</option>
+                    </select>
+                    <textarea class="form-control mb-2" rows="4" [value]="descripcionEdit" (input)="descripcionEdit = valor($event)" placeholder="Descripción (50 a 2000 caracteres)"></textarea>
+                    <input class="form-control mb-2" [value]="denunciadoEdit" (input)="denunciadoEdit = valor($event)" placeholder="Denunciado (opcional)">
+                    <textarea class="form-control mb-2" rows="2" [value]="motivoEdit" (input)="motivoEdit = valor($event)" placeholder="Motivo de la modificación"></textarea>
+                    <div class="d-flex gap-2">
+                      <button type="submit" class="btn btn-primary" [disabled]="enviando || motivoEdit.trim().length < 10">
+                        {{ enviando ? 'Guardando…' : 'Confirmar modificación' }}
+                      </button>
+                      <button type="button" class="btn btn-outline-civic" (click)="editando = false">Cancelar</button>
+                    </div>
+                  </form>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="panel p-4">
+            <h2 class="h5">Observaciones internas</h2>
+            @if (caso.observaciones.length === 0) {
+              <p class="small text-secondary">Aún no hay notas internas.</p>
+            } @else {
+              <ul class="list-unstyled">
+                @for (item of caso.observaciones; track item.id) {
+                  <li class="border rounded p-3 mb-2 small">
+                    <p class="mb-1" style="white-space: pre-wrap;">{{ item.texto }}</p>
+                    <p class="text-secondary mb-0">{{ item.usuarioNombre }} · {{ formatFechaHora(item.creadoEn) }}</p>
+                  </li>
+                }
+              </ul>
+            }
+            @if (!finalizado) {
+              <textarea class="form-control mb-2" rows="3" [value]="nota" (input)="nota = valor($event)" placeholder="Observación interna"></textarea>
+              <button type="button" class="btn btn-primary" [disabled]="enviando || nota.trim().length < 10" (click)="guardarNota()">
+                Agregar observación
+              </button>
+            }
+          </div>
+        }
+
+        @if (pestana === 'seguimiento') {
+          <div class="panel p-4">
+            <h2 class="h5">Línea de tiempo</h2>
+            <app-seguimiento [caso]="caso" (casoActualizado)="actualizarCaso($event)" (error)="error = $event" (exito)="exito = $event" />
+          </div>
+        }
+
+        @if (pestana === 'documentos') {
+          <div class="panel p-4">
+            <h2 class="h5">Documentos</h2>
+            @if (!finalizado) {
+              <label class="dropzone d-block mb-3">
+                {{ subiendoDoc ? 'Cargando documento…' : 'PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos' }}
+                <input type="file" class="d-none" multiple [disabled]="subiendoDoc" accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="subirDocumentos($event)">
+              </label>
+            }
+            @if (avisoDocs) {
+              <p class="alert alert-warning">{{ avisoDocs }}</p>
+            }
+            @if (caso.documentos.length === 0) {
+              <p class="small text-secondary mb-0">Sin adjuntos.</p>
+            } @else {
+              <ul class="list-unstyled mb-0">
+                @for (doc of caso.documentos; track doc.id) {
+                  <li class="d-flex justify-content-between gap-3 small mb-2">
+                    <span class="text-truncate">{{ doc.nombreArchivo }}</span>
+                    <button type="button" class="btn btn-link btn-sm" (click)="descargar(doc.id, doc.nombreArchivo)">Descargar</button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        }
+
+        @if (pestana === 'historial') {
+          <div class="panel p-4">
+            <h2 class="h5">Historial de estados</h2>
+            <ol class="mb-0">
+              @for (evento of caso.historial; track evento.fechaHora + $index) {
+                <li class="mb-3 small">
+                  <p class="mb-0">{{ evento.tipoEvento.split('_').join(' ') }}{{ evento.estadoNuevo ? ' · ' + evento.estadoNuevo : '' }}</p>
+                  <p class="text-secondary mb-0">{{ evento.usuarioNombre }} · {{ formatFechaHora(evento.fechaHora) }}</p>
+                  <p class="text-secondary mb-0" style="white-space: pre-wrap;">{{ evento.descripcion }}</p>
+                </li>
+              }
+            </ol>
+          </div>
+        }
+      </div>
+
+      <aside class="col-xl-4">
+        @if (caso.estado === 'CERRADO') {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Expediente cerrado</h2>
+            <p class="small text-secondary mb-0">El caso quedó archivado. La información y el historial se conservan para consulta; no admite modificaciones ni nuevos adjuntos.</p>
+          </div>
+        }
+        @if (abiertoSeguimiento) {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Resolver caso</h2>
+            <p class="small text-secondary">El porcentaje de avance no cierra el expediente. La resolución formal corresponde al CU-05.</p>
+            <a class="btn btn-primary w-100" [routerLink]="['/casos', caso.id, 'resolver']">Proceder a resolver</a>
+          </div>
+        }
+        @if (puedePlazo && abiertoSeguimiento) {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Plazo</h2>
+            <label class="form-label">Días hábiles de prórroga (1–15)
+              <input class="form-control mt-1" type="number" min="1" max="15" [value]="diasProrroga" (input)="diasProrroga = valor($event)">
+            </label>
+            <textarea class="form-control mb-2" rows="3" [value]="justificacionProrroga" (input)="justificacionProrroga = valor($event)" placeholder="Justificación de prórroga"></textarea>
+            <button type="button" class="btn btn-primary w-100 mb-3" (click)="confirmar = 'prorroga'">Registrar prórroga</button>
+            <textarea class="form-control mb-2" rows="3" [value]="motivoEscalar" (input)="motivoEscalar = valor($event)" placeholder="Motivo de escalamiento"></textarea>
+            <button type="button" class="btn btn-outline-civic w-100" (click)="confirmar = 'escalar'">Escalar caso</button>
+          </div>
+        }
+        @if (puedeAsignar && !finalizado) {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">{{ caso.agenteAsignadoId ? 'Reasignar agente' : 'Asignar agente' }}</h2>
+            @if (agentes.length === 0) {
+              <p class="alert alert-warning mb-0">No hay agentes disponibles en esta área. Contacte al administrador.</p>
+            } @else {
+              <select class="form-select mb-2" [value]="agenteId" (change)="agenteId = valor($event)">
+                @for (agente of agentes; track agente.id) {
+                  <option [value]="agente.id">{{ agente.nombre }}</option>
+                }
+              </select>
+              @if (caso.agenteAsignadoId) {
+                <textarea class="form-control mb-2" rows="3" [value]="motivo" (input)="motivo = valor($event)" placeholder="Motivo de reasignación"></textarea>
+                <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'reasignar'">Reasignar</button>
+              } @else {
+                <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'asignar'">Asignar y pasar a revisión</button>
+              }
+            }
+          </div>
+        }
+        @if (!finalizado && transicionesVisibles.length > 0) {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Cambiar estado</h2>
+            <select class="form-select mb-2" [value]="nuevoEstado" (change)="nuevoEstado = valor($event)" aria-label="Nuevo estado">
+              @for (estado of transicionesVisibles; track estado) {
+                <option [value]="estado">{{ etiquetaEstado(estado) }}</option>
+              }
+            </select>
+            <textarea class="form-control mb-2" rows="4" [value]="observacionEstado" (input)="observacionEstado = valor($event)" placeholder="Observación de la transición"></textarea>
+            <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'estado'">Cambiar estado</button>
+          </div>
+        }
+        @if (puedeCerrar && caso.estado === 'RESUELTO') {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Cerrar caso</h2>
+            <p class="small text-secondary">El cierre archiva el expediente resuelto. Documente la operación antes de confirmar.</p>
+            <textarea class="form-control mb-2" rows="3" [value]="observacionCierre" (input)="observacionCierre = valor($event)" placeholder="Observación de cierre"></textarea>
+            <button type="button" class="btn btn-primary w-100" [disabled]="observacionCierre.trim().length < 20" (click)="confirmar = 'cerrar'">Cerrar caso</button>
+          </div>
+        }
+        @if (puedeAnular && !finalizado && caso.transicionesPermitidas.includes('ANULADO')) {
+          <div class="panel p-4">
+            <h2 class="h5">Anular caso</h2>
+            <textarea class="form-control mb-2" rows="3" [value]="justificacion" (input)="justificacion = valor($event)" placeholder="Justificación de anulación"></textarea>
+            <button type="button" class="btn btn-outline-danger w-100" (click)="confirmar = 'anular'">Anular caso</button>
+          </div>
+        }
+      </aside>
+    </div>
+  }
+
+  @if (confirmar && caso) {
+    <div class="overlay">
+      <div class="panel p-4 w-100" style="max-width: 28rem;">
+        <h2 class="h4">Confirmar acción</h2>
+        <p class="small text-secondary">{{ mensajeConfirmacion }}</p>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" [disabled]="enviando" (click)="ejecutar()">
+            {{ enviando ? 'Aplicando…' : 'Confirmar' }}
+          </button>
+          <button type="button" class="btn btn-outline-civic" (click)="confirmar = null">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  }
+</app-internal-layout>

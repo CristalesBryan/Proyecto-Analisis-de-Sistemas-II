@@ -84,7 +84,6 @@ public class SecurityConfig {
                                 "/api/auth/ciudadano/confirmar",
                                 "/api/bitacora/acceso-publico",
                                 "/api/catalogos/**",
-                                "/api/casos/captcha",
                                 "/api/casos/publico",
                                 "/api/casos/publico/**",
                                 "/h2-console/**")

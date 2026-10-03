@@ -1,0 +1,209 @@
+@if (disponible === null) {
+  <div class="estado-pantalla">Cargando portal…</div>
+} @else if (!disponible) {
+  <div class="estado-pantalla">
+    <p class="small text-uppercase text-secondary mb-3" style="letter-spacing: 0.2em;">QRDS</p>
+    <h1 class="display-5 mb-3">El sistema está en mantenimiento.</h1>
+    <p class="text-secondary mx-auto" style="max-width: 28rem;">
+      Intente más tarde. El administrador ha sido notificado automáticamente.
+    </p>
+  </div>
+} @else {
+  <main>
+    <section class="hero page-pad" id="inicio">
+      <nav class="nav-public d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <a routerLink="/" class="brand">
+          <span class="brand-mark">QRDS</span>
+          <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+        </a>
+        <div class="d-flex flex-wrap align-items-center justify-content-end gap-3 gap-sm-4 flex-grow-1">
+          <a routerLink="/registro-caso" [queryParams]="{ tipo: 'Q' }" class="nav-link-plain">Registrar Queja</a>
+          <a routerLink="/registro-caso" [queryParams]="{ tipo: 'S' }" class="nav-link-plain">Sugerencias</a>
+          <a routerLink="/registro-caso" [queryParams]="{ tipo: 'RD' }" class="nav-link-plain">Reclamo/Denuncia</a>
+          <button type="button" class="nav-link-plain" (click)="openConsulta()">Consultar Seguimiento de Caso</button>
+          <a [routerLink]="enlaceSesion" class="btn btn-hero btn-sm px-4">{{ textoSesion }}</a>
+        </div>
+      </nav>
+
+      <div class="hero-stage">
+        <div class="row align-items-end">
+          <div class="col-lg-6">
+            <h1 class="display-3 mb-3">Tu voz cuenta<br>en nuestra ciudad.</h1>
+            <p class="mb-4" style="color: rgba(247,243,234,0.82);">
+              Sistema municipal de Quejas, Reclamos, Denuncias y Sugerencias.
+              Registra tu caso o consulta su estado sin autenticación.
+            </p>
+            <div class="d-flex flex-wrap gap-3">
+              <a routerLink="/registro-caso" [queryParams]="{ tipo: 'Q' }" class="btn btn-hero px-4 py-2">Registrar Queja</a>
+              <button type="button" class="btn btn-hero-ghost px-4 py-2" (click)="openConsulta()">
+                Consultar Seguimiento de Caso
+              </button>
+            </div>
+          </div>
+          <div class="col-lg-6 d-flex justify-content-lg-end mt-4 mt-lg-0">
+            <p class="hero-kicker mb-0 fs-5">Quejas. Reclamos. Denuncias. Sugerencias.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block page-pad" id="accesos">
+      <div class="mx-auto" style="max-width: 72rem;">
+        <h2 class="display-6 mb-2">Accesos rápidos</h2>
+        <p class="text-secondary mb-5" style="max-width: 40rem;">
+          Elige cómo deseas interactuar con el portal. El acceso informativo y las
+          gestiones ciudadanas no requieren autenticación.
+        </p>
+        <div class="row g-4">
+          <div class="col-md-4">
+            <a routerLink="/registro-caso" class="card-access">
+              <span class="icon-tile">01</span>
+              <h3 class="h5">Registrar Queja / Reclamo / Denuncia / Sugerencia</h3>
+              <p class="text-secondary small flex-grow-1">
+                Envía tu caso de forma pública, sin necesidad de iniciar sesión. Recibirás un código de seguimiento.
+              </p>
+              <span class="fw-medium">Registrar ahora</span>
+            </a>
+          </div>
+          <div class="col-md-4">
+            <button type="button" class="card-access w-100" (click)="openConsulta()">
+              <span class="icon-tile">02</span>
+              <h3 class="h5">Consultar Estado de Mi Caso</h3>
+              <p class="text-secondary small flex-grow-1">
+                Ingresa tu código de seguimiento (ej. Q-2026-00001) y conoce el estado actual de tu caso.
+              </p>
+              <span class="fw-medium">Consultar caso</span>
+            </button>
+          </div>
+          <div class="col-md-4">
+            <a routerLink="/login" class="card-access">
+              <span class="icon-tile">03</span>
+              <h3 class="h5">Iniciar Sesión</h3>
+              <p class="text-secondary small flex-grow-1">
+                Acceso exclusivo para funcionarios y administradores del sistema municipal.
+              </p>
+              <span class="fw-medium">Ir al login</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block page-pad border-top" id="informacion" style="background: #efeae1;">
+      <div class="mx-auto" style="max-width: 72rem;">
+        <h2 class="display-6 mb-2">Qué es el sistema QRDS</h2>
+        <p class="text-secondary mb-5" style="max-width: 46rem;">
+          El Portal Público del Sistema de Quejas, Reclamos, Denuncias y Sugerencias
+          es la fachada institucional digital de la municipalidad: un punto de acceso
+          centralizado, disponible 24/7, para que cualquier ciudadano interactúe con
+          la institución sin barreras.
+        </p>
+        <div class="row g-4 mb-5">
+          @for (tipo of tipos; track tipo.nombre) {
+            <div class="col-md-6 col-lg-3">
+              <h3 class="h5">{{ tipo.nombre }}</h3>
+              <p class="small text-secondary mb-0">{{ tipo.texto }}</p>
+            </div>
+          }
+        </div>
+        <h3 class="h3 mb-4">Cómo funciona</h3>
+        <ol class="row g-3 list-unstyled">
+          @for (paso of pasos; track paso; let i = $index) {
+            <li class="col-md-6 d-flex gap-3 border-start ps-3 small text-secondary">
+              <span class="fw-semibold text-dark">0{{ i + 1 }}</span>
+              <span>{{ paso }}</span>
+            </li>
+          }
+        </ol>
+      </div>
+    </section>
+
+    <section class="section-block page-pad" id="contacto">
+      <div class="mx-auto" style="max-width: 72rem;">
+        <h2 class="display-6 mb-2">Contacto y canales de atención</h2>
+        <p class="text-secondary mb-5" style="max-width: 40rem;">
+          Además del portal digital, puedes acercarte a los canales institucionales
+          de atención presencial y remota.
+        </p>
+        <div class="row g-4">
+          @for (item of contactos; track item.label) {
+            <div class="col-sm-6 col-lg-3 border-top pt-3">
+              <p class="small text-secondary mb-2">{{ item.label }}</p>
+              <p class="fw-medium mb-0">{{ item.value }}</p>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <footer class="page-pad border-top" style="background: #efeae1;">
+      <div class="mx-auto d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3" style="max-width: 72rem;">
+        <div>
+          <p class="fw-medium mb-1">QRDS Municipal</p>
+          <p class="small text-secondary mb-0">© {{ anio }} Municipalidad. Todos los derechos reservados.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-4 small text-secondary">
+          <span>Versión del sistema 1.0</span>
+          <a href="#privacidad" class="link-secondary">Política de privacidad</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+}
+
+@if (modalOpen) {
+  <div class="overlay" role="dialog" aria-modal="true" aria-labelledby="consulta-titulo">
+    <div class="panel p-4 w-100" style="max-width: 32rem;">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 id="consulta-titulo" class="h4 mb-1">Consultar Estado de Caso</h2>
+          <p class="small text-secondary mb-0">Ingresa tu código de seguimiento (ej. Q-2026-00001).</p>
+        </div>
+        <button type="button" class="btn-close" (click)="cerrarConsulta()" aria-label="Cerrar"></button>
+      </div>
+      <form (submit)="consultar($event)">
+        <label class="form-label" for="codigo">Código de seguimiento</label>
+        <input id="codigo" class="form-control" [value]="codigo" (input)="alEscribirCodigo($event)" maxlength="20" placeholder="Q-2026-00001" autocomplete="off">
+        @if (error) {
+          <p class="field-error">{{ error }}</p>
+        }
+        @if (resultado) {
+          <div class="border rounded p-3 mt-3 small">
+            <p class="mb-1"><span class="text-secondary">Código:</span> {{ resultado.codigoSeguimiento }}</p>
+            <p class="mb-1"><span class="text-secondary">Tipo:</span> {{ resultado.tipo }}</p>
+            <p class="mb-1"><span class="text-secondary">Estado:</span> {{ etiquetaEstado(resultado.estado) }}</p>
+            <p class="mb-1"><span class="text-secondary">Registrado:</span> {{ formatFechaHora(resultado.fechaRegistro) }}</p>
+            @if (resultado.ultimaActualizacion) {
+              <p class="mb-1"><span class="text-secondary">Última actualización:</span> {{ formatFechaHora(resultado.ultimaActualizacion) }}</p>
+            }
+            <div class="mt-3">
+              <div class="d-flex justify-content-between small text-secondary mb-1">
+                <span>Avance</span>
+                <span>{{ resultado.avancePorcentaje || 0 }}%</span>
+              </div>
+              <div class="progress-thin"><span [style.width.%]="resultado.avancePorcentaje || 0"></span></div>
+            </div>
+            @if (seguimientos.length > 0) {
+              <ul class="list-unstyled mt-3 pt-3 border-top mb-0" style="max-height: 12rem; overflow: auto;">
+                @for (item of seguimientos; track item.id) {
+                  <li class="mb-2">
+                    <p class="fw-medium mb-0">{{ item.titulo }}</p>
+                    <p class="text-secondary mb-0">
+                      {{ formatFecha(item.creadoEn) }}{{ item.porcentajeAvance !== null ? ' · ' + item.porcentajeAvance + '%' : '' }}
+                    </p>
+                    <p class="mb-0" style="white-space: pre-wrap;">{{ item.descripcion }}</p>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="mt-3 pt-3 border-top text-secondary mb-0">Aún no hay avances públicos registrados.</p>
+            }
+          </div>
+        }
+        <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="loading">
+          {{ loading ? 'Consultando…' : 'Consultar' }}
+        </button>
+      </form>
+    </div>
+  </div>
+}

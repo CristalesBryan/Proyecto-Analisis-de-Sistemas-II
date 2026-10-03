@@ -1,0 +1,15 @@
+CU-01 - Iniciar Sesión
+CU-02 - Cerrar Sesión
+CU-03 - Registrar Queja, Reclamo, Denuncia o Sugerencia
+CU-04 - Cargar Documento
+CU-05 - Consultar Seguimiento de Caso
+CU-06 - Administrar Casos
+CU-07 - Modificar Caso
+CU-08 - Cerrar Caso
+CU-09 - Gestionar Notificaciones
+CU-10 - Generar Reportes
+CU-11 - Administrar Usuarios
+CU-12 - Administrar Roles y Permisos
+CU-13 - Descargar Documento
+CU-14 - Consultar Bitácora de Auditoría
+CU-15 - Generar Reporte de Auditoría
