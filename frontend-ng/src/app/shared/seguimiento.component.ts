@@ -6,6 +6,7 @@ import { formatFechaHora } from '../core/fechas';
 import { ApiError, CasoDetalle, SeguimientoCaso, TipoSeguimiento } from '../core/models';
 
 const ABIERTOS = new Set(['EN_REVISION', 'EN_PROCESO']);
+const NOTA_EXCEPCIONAL = new Set(['CERRADO', 'ANULADO']);
 
 @Component({
   selector: 'app-seguimiento',
@@ -24,7 +25,7 @@ export class SeguimientoComponent implements OnChanges {
   tipo: TipoSeguimiento = 'PUBLICA';
   titulo = '';
   descripcion = '';
-  porcentaje = '0';
+  porcentaje = '';
   notificar = false;
   padreId = '';
   justificacion = '';
@@ -42,17 +43,17 @@ export class SeguimientoComponent implements OnChanges {
   }
 
   get excepcional() {
-    return !this.abierto && this.auth.getUser()?.rol === 'ADMIN';
+    return NOTA_EXCEPCIONAL.has(this.caso.estado) && this.auth.getUser()?.rol === 'ADMIN';
   }
 
   get puedeRegistrar() {
-    return this.abierto || this.excepcional;
+    return this.caso.estado !== 'RESUELTO' && (this.abierto || this.excepcional);
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (this.excepcional) this.tipo = 'INTERNA';
     if (changes['caso'] && this.caso?.id !== this.casoCargado) {
-      this.porcentaje = String(this.caso.avancePorcentaje ?? 0);
+      this.porcentaje = '';
       this.casoCargado = this.caso.id;
       this.cargar();
     }
@@ -121,6 +122,7 @@ export class SeguimientoComponent implements OnChanges {
       );
       this.titulo = '';
       this.descripcion = '';
+      this.porcentaje = '';
       this.justificacion = '';
       this.archivo = null;
       this.notificar = false;

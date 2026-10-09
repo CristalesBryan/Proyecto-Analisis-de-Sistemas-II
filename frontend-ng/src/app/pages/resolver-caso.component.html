@@ -1,11 +1,63 @@
 <app-internal-layout>
-  <a [routerLink]="['/casos', id, 'seguimiento']" class="link-secondary text-decoration-none small d-inline-block mb-3">
-    ← Volver al seguimiento
+  <a [routerLink]="['/casos', id]" class="link-secondary text-decoration-none small d-inline-block mb-3">
+    ← Volver al caso
   </a>
-  <div class="panel p-4" style="max-width: 36rem;">
-    <h1 class="h2">Resolver caso</h1>
-    <p class="text-secondary mt-3 mb-0">
-      El 100% de avance no cierra el expediente. La resolución formal, el dictamen y el cierre se implementarán en el CU-05.
-    </p>
-  </div>
+
+  @if (cargando) {
+    <p class="text-secondary">Cargando caso…</p>
+  } @else if (exito && caso) {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Caso resuelto</h1>
+      <p class="mt-3 mb-1">{{ exito }}</p>
+      <p class="small text-secondary">{{ caso.codigoSeguimiento }} quedó en estado resuelto. La operación quedó registrada en el historial.</p>
+      <a class="btn btn-primary mt-3" [routerLink]="['/casos', caso.id]">Ver detalle</a>
+    </div>
+  } @else if (puedeResolver && caso) {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Resolver caso</h1>
+      <p class="small text-secondary mb-4">{{ caso.codigoSeguimiento }} · En proceso</p>
+      <div class="mb-3">
+        <label class="form-label" for="comentario">Comentario de resolución</label>
+        <textarea id="comentario" class="form-control" rows="6" [ngModel]="comentario" (ngModelChange)="comentario = $event" name="comentario" placeholder="Escriba la respuesta formal del caso"></textarea>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="tipo-resultado">Tipo de resultado</label>
+        <select id="tipo-resultado" class="form-select" [ngModel]="tipoResultado" (ngModelChange)="tipoResultado = $event" name="tipoResultado">
+          <option value="">Seleccione</option>
+          @for (tipo of tipos; track tipo.id) {
+            <option [value]="tipo.id">{{ tipo.label }}</option>
+          }
+        </select>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="constancia">Constancia</label>
+        <input id="constancia" class="form-control" type="file" accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="elegirArchivo($event)">
+        <p class="small text-secondary mb-0 mt-2">La constancia es opcional. Formatos permitidos: PDF, JPG, PNG o DOCX, hasta 5 MB.</p>
+      </div>
+      @if (error) {
+        <div class="alert alert-danger">{{ error }}</div>
+      }
+      <button type="button" class="btn btn-primary" (click)="solicitarConfirmacion()">Confirmar resolución</button>
+    </div>
+  } @else {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Resolver caso</h1>
+      <div class="alert alert-warning mt-3 mb-0">{{ error || 'El caso no se encuentra en estado en proceso.' }}</div>
+    </div>
+  }
+
+  @if (confirmar && caso) {
+    <div class="overlay">
+      <div class="panel p-4 w-100" style="max-width: 28rem;">
+        <h2 class="h4">Confirmar resolución</h2>
+        <p class="small text-secondary">{{ caso.codigoSeguimiento }} pasará de en proceso a resuelto. El caso no se modificará hasta confirmar.</p>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" [disabled]="enviando" (click)="resolver()">
+            {{ enviando ? 'Guardando…' : 'Confirmar' }}
+          </button>
+          <button type="button" class="btn btn-outline-civic" (click)="confirmar = false">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  }
 </app-internal-layout>

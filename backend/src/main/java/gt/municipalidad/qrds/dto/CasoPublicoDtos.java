@@ -3,6 +3,7 @@ package gt.municipalidad.qrds.dto;
 import gt.municipalidad.qrds.entity.Caso;
 import gt.municipalidad.qrds.entity.SeguimientoCaso;
 import gt.municipalidad.qrds.entity.TipoCaso;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -18,6 +19,7 @@ public final class CasoPublicoDtos {
             @NotNull(message = "Seleccione un tipo de caso.")
             TipoCaso tipoCaso,
             String nombreCiudadano,
+            @Email(message = "Ingrese un correo electrónico válido.")
             String email,
             String telefono,
             String areaDependencia,

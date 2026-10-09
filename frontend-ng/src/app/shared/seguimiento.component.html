@@ -52,9 +52,11 @@
     }
     <input class="form-control mb-2" name="titulo" [(ngModel)]="titulo" placeholder="Título (5 a 120 caracteres)" maxlength="120">
     <textarea class="form-control mb-2" name="descripcion" rows="4" [(ngModel)]="descripcion" placeholder="Descripción del avance (20 a 2000 caracteres)" maxlength="2000"></textarea>
-    <label class="form-label">Porcentaje de avance
-      <input class="form-control mt-1" name="porcentaje" type="number" min="0" max="100" step="1" [(ngModel)]="porcentaje">
-    </label>
+    <div class="mb-3">
+      <label class="form-label" for="porcentaje-avance">Porcentaje a sumar</label>
+      <input id="porcentaje-avance" class="form-control" name="porcentaje" type="number" min="1" max="100" step="1" [(ngModel)]="porcentaje" placeholder="Se suma al avance actual">
+      <p class="small text-secondary mb-0 mt-1">Avance actual: {{ caso.avancePorcentaje || 0 }} %. Cada registro se suma hasta llegar a 100 %.</p>
+    </div>
     @if (excepcional) {
       <textarea class="form-control mb-2" name="justificacion" rows="3" [(ngModel)]="justificacion" placeholder="Justificación excepcional (mín. 20 caracteres)"></textarea>
     }
@@ -74,7 +76,9 @@
   </form>
 } @else {
   <p class="text-secondary small">
-    {{ caso.estado === 'RECIBIDO'
+    {{ caso.estado === 'RESUELTO'
+      ? 'El caso está resuelto y solo puede consultarse.'
+      : caso.estado === 'RECIBIDO'
       ? 'El caso debe pasar a revisión o proceso para registrar seguimientos.'
       : 'No se pueden registrar seguimientos en casos finalizados.' }}
   </p>

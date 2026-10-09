@@ -122,8 +122,7 @@ public final class CasoDtos {
     }
 
     public record CerrarCasoRequest(
-            @NotBlank(message = "Documente el cierre del caso.")
-            @Size(min = 20, message = "La observación de cierre debe tener al menos 20 caracteres.")
+            @NotBlank(message = "Ingrese la observación de cierre.")
             String observacion) {
     }
 

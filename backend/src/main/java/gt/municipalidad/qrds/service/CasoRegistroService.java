@@ -19,6 +19,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CasoRegistroService {
 
+    private static final Logger log = LoggerFactory.getLogger(CasoRegistroService.class);
+    private static final String ASUNTO = "Registro en el Sistema de Quejas (QRDS)";
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Set<EstadoCaso> ESTADOS_CERRADOS = Set.of(EstadoCaso.CERRADO, EstadoCaso.ANULADO);
 
@@ -36,6 +40,7 @@ public class CasoRegistroService {
     private final PlazoService plazoService;
     private final BitacoraCasoService bitacoraCasoService;
     private final NotificacionService notificacionService;
+    private final CorreoService correoService;
 
     public CasoRegistroService(
             CasoRepository casoRepository,
@@ -44,7 +49,8 @@ public class CasoRegistroService {
             CorrelativoService correlativoService,
             PlazoService plazoService,
             BitacoraCasoService bitacoraCasoService,
-            NotificacionService notificacionService) {
+            NotificacionService notificacionService,
+            CorreoService correoService) {
         this.casoRepository = casoRepository;
         this.areaRepository = areaRepository;
         this.recaptchaService = recaptchaService;
@@ -52,6 +58,7 @@ public class CasoRegistroService {
         this.plazoService = plazoService;
         this.bitacoraCasoService = bitacoraCasoService;
         this.notificacionService = notificacionService;
+        this.correoService = correoService;
     }
 
     @Transactional
@@ -113,6 +120,17 @@ public class CasoRegistroService {
                         + " " + caso.getCodigoSeguimiento()
                         + ". Ciudadano: " + correoBitacora + ".",
                 ip);
+
+        if (!anonimo && caso.getEmailCiudadano() != null && !caso.getEmailCiudadano().isBlank()) {
+            try {
+                correoService.enviar(
+                        caso.getEmailCiudadano(),
+                        ASUNTO,
+                        textoConfirmacion(caso.getNombreCiudadano(), caso.getCodigoSeguimiento()));
+            } catch (RuntimeException ex) {
+                log.warn("No se pudo enviar la confirmación del caso a {}", caso.getEmailCiudadano());
+            }
+        }
 
         boolean correoEnviado = notificacionService.enviarConfirmacionRegistro(caso);
         return RegistroCasoRespuesta.de(caso, correoEnviado);
@@ -192,6 +210,13 @@ public class CasoRegistroService {
 
     private String normalizar(String texto) {
         return texto == null ? "" : texto.trim().toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
+    }
+
+    private String textoConfirmacion(String nombre, String codigoSeguimiento) {
+        String destinatario = nombre == null || nombre.isBlank() ? "ciudadano" : nombre.trim();
+        return "Hola " + destinatario + ",\n\n"
+                + "Su caso quedó registrado en el Sistema de Quejas (QRDS).\n\n"
+                + "Código de seguimiento: " + codigoSeguimiento + "\n";
     }
 
     private String texto(String valor) {

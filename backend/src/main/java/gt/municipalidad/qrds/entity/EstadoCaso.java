@@ -15,12 +15,11 @@ public enum EstadoCaso {
             case RECIBIDO -> List.of(EN_REVISION, ANULADO);
             case EN_REVISION -> List.of(EN_PROCESO, ANULADO);
             case EN_PROCESO -> List.of(RESUELTO, EN_REVISION);
-            case RESUELTO -> List.of(EN_PROCESO, CERRADO);
-            case CERRADO, ANULADO -> List.of();
+            case RESUELTO, CERRADO, ANULADO -> List.of();
         };
     }
 
     public boolean esFinal() {
-        return this == CERRADO || this == ANULADO;
+        return this == RESUELTO || this == CERRADO || this == ANULADO;
     }
 }

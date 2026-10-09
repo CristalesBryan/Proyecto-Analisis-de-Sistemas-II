@@ -1,0 +1,54 @@
+<app-internal-layout>
+  <a [routerLink]="['/casos', id]" class="link-secondary text-decoration-none small d-inline-block mb-3">
+    ← Volver al caso
+  </a>
+
+  @if (cargando) {
+    <p class="text-secondary">Cargando caso…</p>
+  } @else if (exito && caso) {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Caso cerrado</h1>
+      <p class="mt-3 mb-1">{{ exito }}</p>
+      <p class="small text-secondary">{{ caso.codigoSeguimiento }} quedó en estado cerrado. El historial de la operación se conserva.</p>
+      <a class="btn btn-primary mt-3" [routerLink]="['/casos', caso.id]">Ver detalle</a>
+    </div>
+  } @else if (puedeCerrar && caso) {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Cerrar caso</h1>
+      <p class="small text-secondary mb-4">{{ caso.codigoSeguimiento }} · Resuelto</p>
+      <dl class="row small mb-4">
+        <div class="col-sm-6 mb-2"><dt class="text-secondary">Tipo</dt><dd>{{ caso.tipo }}</dd></div>
+        <div class="col-sm-6 mb-2"><dt class="text-secondary">Área</dt><dd>{{ caso.areaNombre || caso.area }}</dd></div>
+      </dl>
+      <p class="small mb-4" style="white-space: pre-wrap; overflow-wrap: anywhere;">{{ caso.descripcion }}</p>
+      <div class="mb-3">
+        <label class="form-label" for="observacion-cierre">Observación de cierre</label>
+        <textarea id="observacion-cierre" class="form-control" rows="6" [ngModel]="observacion" (ngModelChange)="observacion = $event" name="observacion" placeholder="Documente el cierre del caso"></textarea>
+      </div>
+      @if (error) {
+        <div class="alert alert-danger">{{ error }}</div>
+      }
+      <button type="button" class="btn btn-primary" (click)="solicitarConfirmacion()">Confirmar cierre</button>
+    </div>
+  } @else {
+    <div class="panel p-4" style="max-width: 40rem;">
+      <h1 class="h2">Cerrar caso</h1>
+      <div class="alert alert-warning mt-3 mb-0">{{ error || 'El caso no se encuentra en estado resuelto.' }}</div>
+    </div>
+  }
+
+  @if (confirmar && caso) {
+    <div class="overlay">
+      <div class="panel p-4 w-100" style="max-width: 28rem;">
+        <h2 class="h4">Confirmar cierre</h2>
+        <p class="small text-secondary">{{ caso.codigoSeguimiento }} pasará de resuelto a cerrado. El historial se conserva y el caso no se modificará hasta confirmar.</p>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" [disabled]="enviando" (click)="cerrar()">
+            {{ enviando ? 'Guardando…' : 'Confirmar' }}
+          </button>
+          <button type="button" class="btn btn-outline-civic" (click)="confirmar = false">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  }
+</app-internal-layout>

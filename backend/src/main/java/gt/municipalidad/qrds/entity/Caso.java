@@ -67,6 +67,9 @@ public class Caso {
     @Column(name = "fecha_ultima_actualizacion", nullable = false)
     private Instant fechaUltimaActualizacion = Instant.now();
 
+    @Column(name = "fecha_resolucion")
+    private Instant fechaResolucion;
+
     @Column(name = "fecha_limite_respuesta")
     private LocalDate fechaLimiteRespuesta;
 
@@ -201,6 +204,14 @@ public class Caso {
 
     public void setFechaUltimaActualizacion(Instant fechaUltimaActualizacion) {
         this.fechaUltimaActualizacion = fechaUltimaActualizacion;
+    }
+
+    public Instant getFechaResolucion() {
+        return fechaResolucion;
+    }
+
+    public void setFechaResolucion(Instant fechaResolucion) {
+        this.fechaResolucion = fechaResolucion;
     }
 
     public LocalDate getFechaLimiteRespuesta() {

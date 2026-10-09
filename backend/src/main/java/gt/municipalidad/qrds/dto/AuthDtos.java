@@ -88,4 +88,9 @@ public final class AuthDtos {
             @NotBlank(message = "Ingrese el código de verificación.")
             String codigo) {
     }
+
+    public record ReenviarCodigoRequest(
+            @NotBlank(message = "Falta el identificador de registro.")
+            String registroId) {
+    }
 }

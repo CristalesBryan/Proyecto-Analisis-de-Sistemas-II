@@ -8,6 +8,7 @@ import { LoginComponent } from './pages/login.component';
 import { PortalComponent } from './pages/portal.component';
 import { RegistroCasoComponent } from './pages/registro-caso.component';
 import { RegistroCiudadanoComponent } from './pages/registro-ciudadano.component';
+import { CerrarCasoComponent } from './pages/cerrar-caso.component';
 import { ResolverCasoComponent } from './pages/resolver-caso.component';
 import { SesionShellComponent } from './shared/sesion-shell.component';
 
@@ -59,6 +60,7 @@ export const routes: Routes = [
       { path: '', component: DetalleCasoComponent },
       { path: 'seguimiento', component: DetalleCasoComponent },
       { path: 'resolver', component: ResolverCasoComponent },
+      { path: 'cerrar', component: CerrarCasoComponent },
     ],
   },
 ];

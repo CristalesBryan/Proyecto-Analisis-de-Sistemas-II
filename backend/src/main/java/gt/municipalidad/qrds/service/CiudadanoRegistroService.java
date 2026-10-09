@@ -4,6 +4,7 @@ import gt.municipalidad.qrds.dto.AuthDtos.ConfirmarRegistroRequest;
 import gt.municipalidad.qrds.dto.AuthDtos.MensajeResponse;
 import gt.municipalidad.qrds.dto.AuthDtos.RegistroCiudadanoInicioResponse;
 import gt.municipalidad.qrds.dto.AuthDtos.RegistroCiudadanoRequest;
+import gt.municipalidad.qrds.service.CorreoService.CorreoNoEnviadoException;
 import gt.municipalidad.qrds.entity.Rol;
 import gt.municipalidad.qrds.entity.TipoEventoAcceso;
 import gt.municipalidad.qrds.entity.Usuario;
@@ -29,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class CiudadanoRegistroService {
 
     private static final Logger log = LoggerFactory.getLogger(CiudadanoRegistroService.class);
+    private static final String ASUNTO = "Registro en el Sistema de Quejas (QRDS)";
+    private static final String MENSAJE_CODIGO_NO_ENVIADO = "No pudimos enviar el código, intenta de nuevo";
     private static final long TTL_SEGUNDOS = 10 * 60;
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Pattern DPI = Pattern.compile("^\\d{13}$");
@@ -39,6 +42,7 @@ public class CiudadanoRegistroService {
     private final RecaptchaService recaptchaService;
     private final PasswordEncoder passwordEncoder;
     private final BitacoraAccesoService bitacoraAccesoService;
+    private final CorreoService correoService;
     private final String codigoPrueba;
     private final SecureRandom random = new SecureRandom();
     private final Map<String, Pendiente> pendientes = new ConcurrentHashMap<>();
@@ -48,11 +52,13 @@ public class CiudadanoRegistroService {
             RecaptchaService recaptchaService,
             PasswordEncoder passwordEncoder,
             BitacoraAccesoService bitacoraAccesoService,
+            CorreoService correoService,
             @Value("${qrds.registro.codigo-prueba:}") String codigoPrueba) {
         this.usuarioRepository = usuarioRepository;
         this.recaptchaService = recaptchaService;
         this.passwordEncoder = passwordEncoder;
         this.bitacoraAccesoService = bitacoraAccesoService;
+        this.correoService = correoService;
         this.codigoPrueba = codigoPrueba == null ? "" : codigoPrueba.trim();
     }
 
@@ -84,9 +90,7 @@ public class CiudadanoRegistroService {
 
         limpiarExpirados();
         String registroId = UUID.randomUUID().toString();
-        String codigo = codigoPrueba.isBlank()
-                ? String.format("%06d", random.nextInt(1_000_000))
-                : codigoPrueba;
+        String codigo = nuevoCodigo();
         pendientes.put(
                 registroId,
                 new Pendiente(
@@ -98,7 +102,6 @@ public class CiudadanoRegistroService {
                         codigo,
                         Instant.now().plusSeconds(TTL_SEGUNDOS)));
 
-        log.info("Código de verificación de registro para {}: {}", email, codigo);
         registrarBitacora(
                 null,
                 TipoEventoAcceso.REGISTRO_CIUDADANO,
@@ -106,8 +109,34 @@ public class CiudadanoRegistroService {
                 userAgent,
                 "PENDIENTE",
                 "Inicio de registro ciudadano. Pendiente de verificación de correo.");
+        enviarCodigoObligatorio(email, texto(request.nombre()), codigo, registroId);
         return new RegistroCiudadanoInicioResponse(
                 registroId,
+                "Enviamos un código de verificación a su correo. Ingréselo para activar la cuenta.");
+    }
+
+    public MensajeResponse reenviarCodigo(String registroId) {
+        limpiarExpirados();
+        String id = texto(registroId);
+        Pendiente pendiente = pendientes.get(id);
+        if (pendiente == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CODIGO_INVALIDO",
+                    "El código expiró o es incorrecto. Inicie el registro nuevamente.");
+        }
+        String codigo = nuevoCodigo();
+        Pendiente actualizado = new Pendiente(
+                pendiente.nombre(),
+                pendiente.email(),
+                pendiente.telefono(),
+                pendiente.dpi(),
+                pendiente.passwordHash(),
+                codigo,
+                Instant.now().plusSeconds(TTL_SEGUNDOS));
+        pendientes.put(id, actualizado);
+        enviarCodigoObligatorio(actualizado.email(), actualizado.nombre(), codigo, id);
+        return new MensajeResponse(
                 "Enviamos un código de verificación a su correo. Ingréselo para activar la cuenta.");
     }
 
@@ -149,6 +178,12 @@ public class CiudadanoRegistroService {
         usuario.setAceptaPrivacidad(true);
         usuario.setEmailVerificado(true);
         usuarioRepository.save(usuario);
+
+        try {
+            correoService.enviar(pendiente.email(), ASUNTO, textoBienvenida(pendiente.nombre()));
+        } catch (RuntimeException ex) {
+            log.warn("No se pudo enviar el correo de bienvenida a {}", pendiente.email());
+        }
 
         registrarBitacora(
                 null,
@@ -205,6 +240,43 @@ public class CiudadanoRegistroService {
             errores.put("confirmarPassword", "Las contraseñas no coinciden.");
         }
         return errores;
+    }
+
+    private void enviarCodigoObligatorio(String email, String nombre, String codigo, String registroId) {
+        try {
+            correoService.enviarInmediato(email, ASUNTO, textoCodigo(nombre, codigo));
+        } catch (CorreoNoEnviadoException ex) {
+            log.warn(
+                    "No se pudo enviar el código de verificación a {} (estado {})",
+                    email,
+                    ex.estadoTexto());
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "CORREO_NO_ENVIADO",
+                    MENSAJE_CODIGO_NO_ENVIADO,
+                    Map.of("registroId", registroId));
+        }
+    }
+
+    private String nuevoCodigo() {
+        return codigoPrueba.isBlank()
+                ? String.format("%06d", random.nextInt(1_000_000))
+                : codigoPrueba;
+    }
+
+    private String textoCodigo(String nombre, String codigo) {
+        return saludo(nombre)
+                + "Su código de verificación es: " + codigo + "\n\n"
+                + "Ingréselo en el formulario para activar la cuenta. El código vence en 10 minutos.\n";
+    }
+
+    private String textoBienvenida(String nombre) {
+        return saludo(nombre) + "Su registro en el Sistema de Quejas (QRDS) fue recibido correctamente.\n";
+    }
+
+    private String saludo(String nombre) {
+        String destinatario = nombre == null || nombre.isBlank() ? "ciudadano" : nombre.trim();
+        return "Hola " + destinatario + ",\n\n";
     }
 
     private void limpiarExpirados() {

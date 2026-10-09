@@ -125,6 +125,12 @@ public class DocumentoService {
             Usuario usuario,
             String ip,
             String prefijoBitacora) {
+        if (caso.getEstado() == EstadoCaso.RESUELTO) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_NO_MODIFICABLE",
+                    "El caso está resuelto y solo puede consultarse.");
+        }
         if (caso.getEstado() == EstadoCaso.CERRADO || caso.getEstado() == EstadoCaso.ANULADO) {
             throw new ApiException(
                     HttpStatus.CONFLICT,

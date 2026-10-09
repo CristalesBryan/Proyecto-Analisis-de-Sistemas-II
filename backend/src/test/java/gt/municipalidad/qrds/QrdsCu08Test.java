@@ -1,6 +1,7 @@
 package gt.municipalidad.qrds;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -42,10 +43,13 @@ class QrdsCu08Test {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"" + OBSERVACION_CIERRE + "\"}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.mensaje").value("El caso fue cerrado y la operación quedó registrada en bitácora."))
                 .andExpect(jsonPath("$.caso.estado").value("CERRADO"))
                 .andExpect(jsonPath("$.caso.historial[0].tipoEvento").value("CIERRE"))
+                .andExpect(jsonPath("$.caso.historial[0].estadoAnterior").value("RESUELTO"))
                 .andExpect(jsonPath("$.caso.historial[0].estadoNuevo").value("CERRADO"))
-                .andExpect(jsonPath("$.caso.descripcion").isNotEmpty());
+                .andExpect(jsonPath("$.caso.descripcion").isNotEmpty())
+                .andExpect(jsonPath("$.caso.transicionesPermitidas").isEmpty());
 
         mockMvc.perform(patch("/api/casos/" + casoId)
                         .header("Authorization", "Bearer " + admin)
@@ -70,7 +74,8 @@ class QrdsCu08Test {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"" + OBSERVACION_CIERRE + "\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.codigo").value("CASO_NO_APTO_CIERRE"));
+                .andExpect(jsonPath("$.codigo").value("CASO_NO_APTO_CIERRE"))
+                .andExpect(jsonPath("$.mensaje").value("El caso no se encuentra en estado resuelto."));
 
         mockMvc.perform(get("/api/casos/" + casoId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
@@ -86,7 +91,12 @@ class QrdsCu08Test {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"" + OBSERVACION_CIERRE + "\"}"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("PERMISO_DENEGADO"));
+                .andExpect(jsonPath("$.codigo").value("PERMISO_DENEGADO"))
+                .andExpect(jsonPath("$.mensaje").value("El usuario no cuenta con permisos para cerrar el caso."));
+
+        mockMvc.perform(get("/api/casos/" + casoId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("EN_PROCESO"));
     }
 
     @Test
@@ -97,8 +107,12 @@ class QrdsCu08Test {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nuevoEstado\":\"CERRADO\",\"observacion\":\"Intento de cierre por cambio de estado.\"}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.codigo").value("TRANSICION_INVALIDA"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.codigo").value("CASO_NO_DISPONIBLE"));
+
+        mockMvc.perform(get("/api/casos/" + casoId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("RESUELTO"));
     }
 
     @Test
@@ -109,13 +123,19 @@ class QrdsCu08Test {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"" + OBSERVACION_CIERRE + "\"}"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.caso.estado").value("CERRADO"));
         mockMvc.perform(post("/api/casos/" + casoId + "/cerrar")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"observacion\":\"" + OBSERVACION_CIERRE + "\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.codigo").value("CASO_NO_APTO_CIERRE"));
+                .andExpect(jsonPath("$.codigo").value("CASO_NO_APTO_CIERRE"))
+                .andExpect(jsonPath("$.mensaje").value("El caso no se encuentra en estado resuelto."));
+
+        mockMvc.perform(get("/api/casos/" + casoId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("CERRADO"));
     }
 
     private long casoResuelto(String adminToken, String email) throws Exception {
@@ -128,7 +148,11 @@ class QrdsCu08Test {
                         .content("{\"agenteId\":" + agenteId + "}"))
                 .andExpect(status().isOk());
         cambiarEstado(adminToken, casoId, "EN_PROCESO", "Se inicia la atención formal del expediente municipal.");
-        cambiarEstado(adminToken, casoId, "RESUELTO", "La solicitud fue atendida y queda lista para archivo.");
+        mockMvc.perform(multipart("/api/casos/" + casoId + "/resolver")
+                        .param("comentario", "La solicitud fue atendida y queda lista para archivo.")
+                        .param("tipoResultado", "ATENDIDO")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
         return casoId;
     }
 

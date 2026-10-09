@@ -26,6 +26,19 @@ public class NotificacionService {
         return true;
     }
 
+    public boolean notificarResolucion(Caso caso, String tipoResultado) {
+        if (caso.isEsAnonimo() || caso.getEmailCiudadano() == null || caso.getEmailCiudadano().isBlank()) {
+            return false;
+        }
+        log.info(
+                "Notificación de resolución {} ({}) enviada a {} para el caso {}",
+                tipoResultado,
+                caso.getEstado(),
+                caso.getEmailCiudadano(),
+                caso.getCodigoSeguimiento());
+        return true;
+    }
+
     public void notificarCambioEstado(Caso caso, EstadoCaso anterior, EstadoCaso nuevo) {
         if (nuevo != EstadoCaso.EN_PROCESO
                 && nuevo != EstadoCaso.RESUELTO

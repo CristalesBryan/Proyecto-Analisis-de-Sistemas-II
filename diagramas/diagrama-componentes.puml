@@ -1,0 +1,92 @@
+@startuml diagrama-componentes
+title Diagrama de componentes — Sistema QRDS\nQuejas, Reclamos, Denuncias y Sugerencias
+
+!pragma layout smetana
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 140
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam componentStyle uml2
+skinparam linetype ortho
+skinparam nodesep 50
+skinparam ranksep 40
+skinparam ArrowColor #1F4E79
+skinparam ComponentBorderColor #1F4E79
+skinparam ComponentBackgroundColor #F4F8FB
+skinparam InterfaceBorderColor #1F4E79
+skinparam DatabaseBorderColor #1B5E3B
+skinparam DatabaseBackgroundColor #E7F3EA
+skinparam CloudBorderColor #1F4E79
+skinparam FolderBorderColor #1F4E79
+skinparam FolderBackgroundColor #FFF6E8
+skinparam ActorBorderColor #1F4E79
+skinparam NoteBorderColor #8A7340
+skinparam NoteBackgroundColor #FFF8E8
+skinparam wrapWidth 220
+
+actor "Ciudadano" as ciudadano
+actor "Personal municipal\nADMIN · SUPERVISOR · AGENTE" as personal
+
+component "Cliente web Angular\nfrontend-ng · puerto 4200" as angular {
+  [Páginas\nportal, registro, bandeja, detalle, dashboard]
+  [Componentes compartidos\nsesión, seguimiento, reCAPTCHA]
+  [Cliente HTTP\ncore/api.service + auth.service]
+}
+
+interface "IApiQrds\nHTTPS · JSON · /api/*" as iapi
+
+component "API QRDS\nSpring Boot · puerto 8080\ngt.municipalidad.qrds" as api {
+  component "Seguridad" as seg <<component>> {
+    [JwtAuthFilter]
+    [SecurityConfig]
+    [RateLimitFilter]
+  }
+
+  component "Controladores REST" as ctrl <<component>> {
+    [Auth · Casos públicos]
+    [Gestión de casos]
+    [Seguimiento · Documentos]
+    [Ciudadano · Catálogos · Bitácora]
+  }
+
+  component "Servicios de negocio" as neg <<component>> {
+    [Registro y gestión de casos]
+    [Seguimiento y documentos]
+    [Autenticación y ciudadanos]
+    [Correlativo, plazos y bitácora]
+    [Notificaciones]
+  }
+
+  component "Repositorios JPA" as repo <<component>> {
+    [Caso · Usuario · Seguimiento]
+    [Documento · Bitácora · Catálogos]
+  }
+}
+
+together {
+  database "PostgreSQL qrds\npuerto 5432\nschema.sql" as db
+  folder "Almacén de documentos\n./data/documentos" as files
+  cloud "Google reCAPTCHA\napi/siteverify" as captcha
+}
+
+ciudadano --> angular : usa
+personal --> angular : usa
+
+angular --> iapi
+iapi -down- ctrl
+
+ctrl --> seg : token JWT\ny límite de tasa
+ctrl --> neg
+neg --> repo
+repo --> db : JDBC
+neg --> files : PDF, JPG,\nPNG, DOCX
+neg --> captcha : verifica\ntoken
+
+note bottom of db
+  En desarrollo local la API puede usar H2
+  en modo PostgreSQL. El esquema del sistema
+  es el de database/schema.sql sobre PostgreSQL.
+end note
+
+@enduml

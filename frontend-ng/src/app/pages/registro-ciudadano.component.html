@@ -15,7 +15,7 @@
         <p class="small text-secondary">
           {{ paso === 1
             ? 'La cuenta se crea con verificación humana, contraseña segura, DPI y aviso de privacidad.'
-            : 'Ingrese el código de seis dígitos enviado a su correo para activar la cuenta. En desarrollo, el código también aparece en la consola del backend.' }}
+            : 'Ingrese el código de seis dígitos enviado a su correo para activar la cuenta.' }}
         </p>
 
         @if (paso === 1) {
@@ -92,11 +92,17 @@
             @if (enviado && !codigo.trim()) {
               <p class="field-error">Ingrese el código de seis dígitos.</p>
             }
+            @if (aviso) {
+              <div class="alert alert-success mt-3" role="status">{{ aviso }}</div>
+            }
             @if (errorServidor) {
               <div class="alert alert-danger mt-3" role="alert">{{ errorServidor }}</div>
             }
             <button type="submit" class="btn btn-primary w-100 mt-3" [disabled]="cargando">
               {{ cargando ? 'Activando cuenta…' : 'Activar cuenta' }}
+            </button>
+            <button type="button" class="btn btn-outline-secondary w-100 mt-2" (click)="reenviarCodigo()" [disabled]="cargando">
+              Reenviar código
             </button>
           </form>
         }

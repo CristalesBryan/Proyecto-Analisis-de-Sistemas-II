@@ -1,0 +1,12 @@
+---
+description: El único frontend del proyecto es frontend-ng (Angular)
+alwaysApply: true
+---
+
+# Frontend
+
+El único frontend que se modifica es `frontend-ng` (Angular).
+
+- Cambios de interfaz, textos, rutas y cliente HTTP van en `frontend-ng/`.
+- No edites, amplíes ni documentes la app de React en `frontend/`.
+- No borres `frontend/` salvo que se pida de forma explícita.

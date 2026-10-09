@@ -20,8 +20,10 @@ import gt.municipalidad.qrds.entity.EstadoCaso;
 import gt.municipalidad.qrds.entity.ObservacionCaso;
 import gt.municipalidad.qrds.entity.Permiso;
 import gt.municipalidad.qrds.entity.Prioridad;
+import gt.municipalidad.qrds.entity.ResolucionCaso;
 import gt.municipalidad.qrds.entity.Rol;
 import gt.municipalidad.qrds.entity.TipoEventoCaso;
+import gt.municipalidad.qrds.entity.TipoResultado;
 import gt.municipalidad.qrds.entity.Usuario;
 import gt.municipalidad.qrds.exception.ApiException;
 import gt.municipalidad.qrds.repository.AreaDependenciaRepository;
@@ -30,8 +32,13 @@ import gt.municipalidad.qrds.repository.CasoRepository;
 import gt.municipalidad.qrds.repository.CasoSpecifications;
 import gt.municipalidad.qrds.repository.DocumentoCasoRepository;
 import gt.municipalidad.qrds.repository.ObservacionCasoRepository;
+import gt.municipalidad.qrds.repository.ResolucionCasoRepository;
 import gt.municipalidad.qrds.repository.UsuarioRepository;
+import gt.municipalidad.qrds.util.Archivos;
 import gt.municipalidad.qrds.util.Permisos;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -42,10 +49,12 @@ import java.util.regex.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CasoGestionService {
@@ -68,6 +77,8 @@ public class CasoGestionService {
     private final BitacoraCasoService bitacoraCasoService;
     private final PlazoService plazoService;
     private final NotificacionService notificacionService;
+    private final ResolucionCasoRepository resolucionCasoRepository;
+    private final Path directorio;
 
     public CasoGestionService(
             CasoRepository casoRepository,
@@ -78,7 +89,9 @@ public class CasoGestionService {
             BitacoraCasoRepository bitacoraCasoRepository,
             BitacoraCasoService bitacoraCasoService,
             PlazoService plazoService,
-            NotificacionService notificacionService) {
+            NotificacionService notificacionService,
+            ResolucionCasoRepository resolucionCasoRepository,
+            @Value("${qrds.archivos.directorio}") String directorio) {
         this.casoRepository = casoRepository;
         this.usuarioRepository = usuarioRepository;
         this.areaDependenciaRepository = areaDependenciaRepository;
@@ -88,6 +101,8 @@ public class CasoGestionService {
         this.bitacoraCasoService = bitacoraCasoService;
         this.plazoService = plazoService;
         this.notificacionService = notificacionService;
+        this.resolucionCasoRepository = resolucionCasoRepository;
+        this.directorio = Path.of(directorio);
     }
 
     @Transactional(readOnly = true)
@@ -225,7 +240,7 @@ public class CasoGestionService {
         Caso caso = localizarGestionable(casoId, usuario);
         exigirNoFinalizado(caso);
         EstadoCaso destino = parsearEstado(request.nuevoEstado());
-        if (destino == EstadoCaso.ANULADO || destino == EstadoCaso.CERRADO) {
+        if (destino == EstadoCaso.ANULADO || destino == EstadoCaso.CERRADO || destino == EstadoCaso.RESUELTO) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "TRANSICION_INVALIDA",
@@ -303,29 +318,95 @@ public class CasoGestionService {
 
     @Transactional
     public AccionCasoRespuesta cerrar(Long casoId, CerrarCasoRequest request, Usuario usuario, String ip) {
-        Permisos.exigir(usuario, Permiso.CASOS_CERRAR);
-        Caso caso = localizarVisible(casoId, usuario);
+        Caso caso = localizarParaCerrar(casoId, usuario);
         if (caso.getEstado() != EstadoCaso.RESUELTO) {
             throw new ApiException(
                     HttpStatus.CONFLICT,
                     "CASO_NO_APTO_CIERRE",
-                    "El caso no cumple las condiciones necesarias para ser cerrado.");
+                    "El caso no se encuentra en estado resuelto.");
+        }
+        String texto = request.observacion() == null ? "" : request.observacion().trim();
+        if (texto.isBlank()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDACION",
+                    "Datos inválidos. Verifique el formulario.",
+                    Map.of("observacion", "Ingrese la observación de cierre."));
         }
         EstadoCaso anterior = caso.getEstado();
         caso.setEstado(EstadoCaso.CERRADO);
         caso.tocar();
-        observacionCasoRepository.save(new ObservacionCaso(caso, usuario, request.observacion().trim()));
+        observacionCasoRepository.save(new ObservacionCaso(caso, usuario, texto));
         bitacoraCasoService.registrar(
                 caso,
                 usuario,
                 TipoEventoCaso.CIERRE,
-                "Cierre de " + caso.getCodigoSeguimiento() + ". " + request.observacion().trim(),
+                "Cierre de " + caso.getCodigoSeguimiento() + ". " + texto,
                 ip,
                 anterior,
                 EstadoCaso.CERRADO);
-        notificacionService.notificarCambioEstado(caso, anterior, EstadoCaso.CERRADO);
         return new AccionCasoRespuesta(
                 "El caso fue cerrado y la operación quedó registrada en bitácora.", detalleDe(caso, usuario));
+    }
+
+    @Transactional
+    public AccionCasoRespuesta resolver(
+            Long casoId,
+            String comentario,
+            String tipoResultado,
+            MultipartFile archivo,
+            Usuario usuario,
+            String ip) {
+        Permisos.exigir(usuario, Permiso.CASOS_GESTIONAR);
+        Caso caso = localizarParaResolver(casoId, usuario);
+        if (caso.getEstado() != EstadoCaso.EN_PROCESO) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_NO_APTO_RESOLUCION",
+                    "El caso no se encuentra en estado en proceso.");
+        }
+        String texto = comentario == null ? "" : comentario.trim();
+        TipoResultado tipo = TipoResultado.de(tipoResultado);
+        Map<String, String> errores = new LinkedHashMap<>();
+        if (texto.isBlank()) {
+            errores.put("comentario", "Ingrese el comentario de resolución.");
+        }
+        if (tipo == null) {
+            errores.put("tipoResultado", "Seleccione el tipo de resultado.");
+        }
+        if (!errores.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDACION",
+                    "Datos inválidos. Verifique el formulario.",
+                    errores);
+        }
+        String ruta = guardarConstancia(caso, archivo);
+        resolucionCasoRepository.findByCasoIdAndVigenteTrue(caso.getId()).ifPresent(anterior -> {
+            anterior.setVigente(false);
+            resolucionCasoRepository.save(anterior);
+        });
+        ResolucionCaso resolucion = new ResolucionCaso(caso, usuario, texto, tipo, ruta, ip);
+        EstadoCaso anterior = caso.getEstado();
+        caso.setEstado(EstadoCaso.RESUELTO);
+        caso.setFechaResolucion(Instant.now());
+        caso.tocar();
+        boolean notificado = notificacionService.notificarResolucion(caso, tipo.getEtiqueta());
+        resolucion.registrarNotificacion(notificado);
+        resolucionCasoRepository.save(resolucion);
+        bitacoraCasoService.registrar(
+                caso,
+                usuario,
+                TipoEventoCaso.RESOLUCION,
+                "Resolución formal de " + caso.getCodigoSeguimiento() + ". Resultado: " + tipo.getEtiqueta()
+                        + ". " + texto,
+                ip,
+                anterior,
+                EstadoCaso.RESUELTO);
+        String mensaje = notificado
+                ? "El caso fue resuelto y se notificó al ciudadano."
+                : "El caso fue resuelto correctamente.";
+        return new AccionCasoRespuesta(mensaje, detalleDe(caso, usuario));
     }
 
     @Transactional
@@ -438,6 +519,55 @@ public class CasoGestionService {
                     "No tiene permisos para gestionar este caso.");
         }
         return caso;
+    }
+
+    private Caso localizarParaCerrar(Long casoId, Usuario usuario) {
+        try {
+            Permisos.exigir(usuario, Permiso.CASOS_CERRAR);
+            return localizarVisible(casoId, usuario);
+        } catch (ApiException ex) {
+            if (ex.getStatus() == HttpStatus.FORBIDDEN) {
+                throw new ApiException(
+                        HttpStatus.FORBIDDEN,
+                        "PERMISO_DENEGADO",
+                        "El usuario no cuenta con permisos para cerrar el caso.");
+            }
+            throw ex;
+        }
+    }
+
+    private Caso localizarParaResolver(Long casoId, Usuario usuario) {
+        try {
+            return localizarGestionable(casoId, usuario);
+        } catch (ApiException ex) {
+            if (ex.getStatus() == HttpStatus.FORBIDDEN) {
+                throw new ApiException(
+                        HttpStatus.FORBIDDEN,
+                        "PERMISO_DENEGADO",
+                        "El usuario no cuenta con permisos para resolver el caso.");
+            }
+            throw ex;
+        }
+    }
+
+    private String guardarConstancia(Caso caso, MultipartFile archivo) {
+        if (archivo == null || archivo.isEmpty()) {
+            return null;
+        }
+        String nombre = Archivos.nombreSeguro(archivo.getOriginalFilename());
+        try {
+            byte[] contenido = archivo.getBytes();
+            String motivo = Archivos.motivoRechazo(nombre, contenido);
+            if (motivo != null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "ARCHIVO_INVALIDO", motivo);
+            }
+            return Archivos.persistir(directorio, caso.getCodigoSeguimiento(), nombre, contenido).toString();
+        } catch (IOException ex) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "ARCHIVO_INVALIDO",
+                    "No fue posible almacenar el archivo.");
+        }
     }
 
     Caso localizarGestionable(Long casoId, Usuario usuario) {

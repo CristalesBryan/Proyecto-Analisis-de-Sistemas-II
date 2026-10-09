@@ -81,6 +81,7 @@ public class SecurityConfig {
                                 "/api/sistema/estado",
                                 "/api/auth/login",
                                 "/api/auth/ciudadano/verificar-inicio",
+                                "/api/auth/ciudadano/reenviar-codigo",
                                 "/api/auth/ciudadano/confirmar",
                                 "/api/bitacora/acceso-publico",
                                 "/api/catalogos/**",

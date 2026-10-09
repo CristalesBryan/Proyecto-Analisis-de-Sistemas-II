@@ -83,11 +83,7 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
   }
 
   get puedeCerrar() {
-    return (
-      this.usuario?.permisos?.includes('CASOS_CERRAR') ||
-      this.usuario?.rol === 'ADMIN' ||
-      this.usuario?.rol === 'SUPERVISOR'
-    );
+    return this.usuario?.permisos?.includes('CASOS_CERRAR') === true;
   }
 
   get puedePlazo() {
@@ -99,7 +95,7 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
   }
 
   get finalizado() {
-    return this.caso?.estado === 'CERRADO' || this.caso?.estado === 'ANULADO';
+    return this.caso?.estado === 'RESUELTO' || this.caso?.estado === 'CERRADO' || this.caso?.estado === 'ANULADO';
   }
 
   get abiertoSeguimiento() {
@@ -157,6 +153,35 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
     return (event.target as HTMLInputElement).value;
   }
 
+  get prorrogaLista() {
+    const dias = Number(this.diasProrroga);
+    return Number.isInteger(dias) && dias >= 1 && dias <= 15 && this.justificacionProrroga.trim().length >= 20;
+  }
+
+  prepararCambioEstado() {
+    this.error = '';
+    this.sincronizarNuevoEstado();
+    this.confirmar = 'estado';
+  }
+
+  prepararProrroga() {
+    this.error = '';
+    if (!this.prorrogaLista) {
+      this.error = this.justificacionProrroga.trim().length < 20
+        ? 'La justificación debe tener al menos 20 caracteres.'
+        : 'La prórroga debe ser de 1 a 15 días hábiles.';
+      return;
+    }
+    this.confirmar = 'prorroga';
+  }
+
+  private sincronizarNuevoEstado() {
+    const opciones = this.transicionesVisibles;
+    if (!opciones.includes(this.nuevoEstado)) {
+      this.nuevoEstado = opciones[0] || '';
+    }
+  }
+
   archivos(event: Event) {
     return (event.target as HTMLInputElement).files;
   }
@@ -191,9 +216,7 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
       this.denunciadoEdit = detalle.denunciado || '';
       this.editando = false;
       this.motivoEdit = '';
-      if (!detalle.transicionesPermitidas.includes(this.nuevoEstado)) {
-        this.nuevoEstado = detalle.transicionesPermitidas[0] || '';
-      }
+      this.sincronizarNuevoEstado();
       if (this.puedeAsignar) {
         const lista = await this.api.listarAgentes(detalle.area);
         this.agentes = lista;
@@ -235,6 +258,7 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
         respuesta = await this.api.anularCaso(this.caso.id, this.justificacion);
       }
       this.caso = respuesta.caso;
+      this.sincronizarNuevoEstado();
       this.exito = respuesta.mensaje;
       this.confirmar = null;
       this.motivo = '';
@@ -242,9 +266,10 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
       this.justificacion = '';
     } catch (err) {
       const apiError = err as ApiError;
+      const detalle = apiError.errores ? Object.values(apiError.errores).find((texto) => texto.trim()) : '';
       this.error = apiError.conexion
         ? 'Error al gestionar el caso. Verifique su conexión e intente nuevamente.'
-        : apiError.message;
+        : detalle || apiError.message;
     } finally {
       this.enviando = false;
     }

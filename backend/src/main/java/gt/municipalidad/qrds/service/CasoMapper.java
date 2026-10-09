@@ -110,6 +110,7 @@ public final class CasoMapper {
 
     private static List<String> transiciones(Caso caso, Usuario consultante) {
         return caso.getEstado().transiciones().stream()
+                .filter(estado -> estado != EstadoCaso.RESUELTO)
                 .filter(estado -> estado != EstadoCaso.CERRADO)
                 .filter(estado -> estado != EstadoCaso.ANULADO || consultante.getRol() == Rol.ADMIN)
                 .map(Enum::name)

@@ -11,6 +11,7 @@ public enum TipoEventoCaso {
     OBSERVACION,
     ANULACION,
     CIERRE,
+    RESOLUCION,
     MODIFICACION,
     SEGUIMIENTO,
     PRORROGA,

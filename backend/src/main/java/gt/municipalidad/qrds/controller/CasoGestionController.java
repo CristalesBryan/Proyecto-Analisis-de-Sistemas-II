@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 public class CasoGestionController {
@@ -138,8 +139,25 @@ public class CasoGestionController {
         return casoGestionService.anular(casoId, request, principal.getUsuario(), HttpRequests.ipCliente(http));
     }
 
+    @PostMapping("/api/casos/{casoId}/resolver")
+    @PreAuthorize("hasAuthority('PERM_CASOS_GESTIONAR')")
+    public AccionCasoRespuesta resolver(
+            @PathVariable Long casoId,
+            @RequestParam String comentario,
+            @RequestParam String tipoResultado,
+            @RequestParam(required = false) MultipartFile archivo,
+            @AuthenticationPrincipal UsuarioPrincipal principal,
+            HttpServletRequest http) {
+        return casoGestionService.resolver(
+                casoId,
+                comentario,
+                tipoResultado,
+                archivo,
+                principal.getUsuario(),
+                HttpRequests.ipCliente(http));
+    }
+
     @PostMapping("/api/casos/{casoId}/cerrar")
-    @PreAuthorize("hasAuthority('PERM_CASOS_CERRAR')")
     public AccionCasoRespuesta cerrar(
             @PathVariable Long casoId,
             @Valid @RequestBody CerrarCasoRequest request,

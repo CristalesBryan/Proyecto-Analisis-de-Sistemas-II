@@ -32,6 +32,7 @@ export class RegistroCiudadanoComponent {
   registroId = '';
   enviado = false;
   cargando = false;
+  aviso = '';
   errorServidor = '';
   erroresApi: Record<string, string> = {};
 
@@ -71,6 +72,7 @@ export class RegistroCiudadanoComponent {
     event.preventDefault();
     this.enviado = true;
     this.errorServidor = '';
+    this.aviso = '';
     this.erroresApi = {};
     if (Object.keys(this.errores).length > 0) return;
     this.cargando = true;
@@ -90,6 +92,13 @@ export class RegistroCiudadanoComponent {
       this.enviado = false;
     } catch (error) {
       const apiError = error as ApiError;
+      if (apiError.codigo === 'CORREO_NO_ENVIADO' && apiError.errores?.['registroId']) {
+        this.registroId = apiError.errores['registroId'];
+        this.paso = 2;
+        this.enviado = false;
+        this.errorServidor = apiError.message || 'No pudimos enviar el código, intenta de nuevo';
+        return;
+      }
       this.errorServidor = apiError.message;
       if (apiError.errores) this.erroresApi = apiError.errores;
       this.reiniciarCaptcha(
@@ -108,6 +117,7 @@ export class RegistroCiudadanoComponent {
     event.preventDefault();
     this.enviado = true;
     this.errorServidor = '';
+    this.aviso = '';
     if (!this.codigo.trim()) return;
     this.cargando = true;
     try {
@@ -115,6 +125,21 @@ export class RegistroCiudadanoComponent {
       await this.router.navigateByUrl('/login');
     } catch (error) {
       this.errorServidor = (error as ApiError).message;
+    } finally {
+      this.cargando = false;
+    }
+  }
+
+  async reenviarCodigo() {
+    this.errorServidor = '';
+    this.aviso = '';
+    this.cargando = true;
+    try {
+      const respuesta = await this.api.reenviarCodigoCiudadano(this.registroId);
+      this.aviso = respuesta.mensaje;
+    } catch (error) {
+      const apiError = error as ApiError;
+      this.errorServidor = apiError.message || 'No pudimos enviar el código, intenta de nuevo';
     } finally {
       this.cargando = false;
     }

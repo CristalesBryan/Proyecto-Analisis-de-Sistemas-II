@@ -88,7 +88,17 @@ export class ApiService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      timeoutMs: 15000,
     }).then((res) => this.parsearJson<{ registroId: string; mensaje: string }>(res));
+  }
+
+  reenviarCodigoCiudadano(registroId: string) {
+    return this.apiFetch('/api/auth/ciudadano/reenviar-codigo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ registroId }),
+      timeoutMs: 15000,
+    }).then((res) => this.parsearJson<{ mensaje: string }>(res));
   }
 
   confirmarRegistroCiudadano(registroId: string, codigo: string) {
@@ -225,6 +235,14 @@ export class ApiService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ justificacion }),
+    }).then((res) => this.parsearJson<{ mensaje: string; caso: CasoDetalle }>(res));
+  }
+
+  resolverCaso(id: number, form: FormData) {
+    return this.apiFetch(`/api/casos/${id}/resolver`, {
+      method: 'POST',
+      body: form,
+      timeoutMs: 20000,
     }).then((res) => this.parsearJson<{ mensaje: string; caso: CasoDetalle }>(res));
   }
 

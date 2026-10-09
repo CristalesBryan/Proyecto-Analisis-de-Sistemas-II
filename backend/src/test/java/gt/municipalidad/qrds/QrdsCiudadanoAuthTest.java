@@ -105,6 +105,13 @@ class QrdsCiudadanoAuthTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("CODIGO_INVALIDO"));
 
+        mockMvc.perform(post("/api/auth/ciudadano/reenviar-codigo")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"registroId":"%s"}
+                                """.formatted(registroId)))
+                .andExpect(status().isOk());
+
         mockMvc.perform(post("/api/auth/ciudadano/confirmar")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

@@ -105,6 +105,7 @@ class QrdsCu07Test {
     void registraSeguimientoPublicoYProrroga() throws Exception {
         String token = tokenDe("agente@municipalidad.gob.gt");
         long casoId = casoIdDe(token, "Q-2026-00001");
+        int avanceEsperado = Math.min(100, casoRepository.findById(casoId).orElseThrow().getAvancePorcentaje() + 55);
         mockMvc.perform(multipart("/api/casos/" + casoId + "/seguimientos")
                         .file(new MockMultipartFile(
                                 "archivo", "acta.pdf", "application/pdf", "%PDF-1.4 evidencia".getBytes()))
@@ -116,7 +117,8 @@ class QrdsCu07Test {
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.seguimiento.tipo").value("PUBLICA"))
-                .andExpect(jsonPath("$.caso.avancePorcentaje").value(55))
+                .andExpect(jsonPath("$.caso.avancePorcentaje").value(avanceEsperado))
+                .andExpect(jsonPath("$.seguimiento.porcentajeAvance").value(avanceEsperado))
                 .andExpect(jsonPath("$.seguimiento.adjunto.nombreArchivo").value("acta.pdf"));
 
         mockMvc.perform(get("/api/casos/publico/Q-2026-00001/seguimientos"))

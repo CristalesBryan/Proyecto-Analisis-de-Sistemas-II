@@ -101,6 +101,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         if ("POST".equalsIgnoreCase(metodo)
                 && (path.endsWith("/api/auth/ciudadano/verificar-inicio")
+                        || path.endsWith("/api/auth/ciudadano/reenviar-codigo")
                         || path.endsWith("/api/auth/ciudadano/confirmar"))) {
             return new Regla(
                     "registro-ciudadano",

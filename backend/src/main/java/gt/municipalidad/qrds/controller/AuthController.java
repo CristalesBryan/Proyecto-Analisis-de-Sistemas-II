@@ -4,6 +4,7 @@ import gt.municipalidad.qrds.dto.AuthDtos.ConfirmarRegistroRequest;
 import gt.municipalidad.qrds.dto.AuthDtos.LoginRequest;
 import gt.municipalidad.qrds.dto.AuthDtos.LoginResponse;
 import gt.municipalidad.qrds.dto.AuthDtos.MensajeResponse;
+import gt.municipalidad.qrds.dto.AuthDtos.ReenviarCodigoRequest;
 import gt.municipalidad.qrds.dto.AuthDtos.RegistroCiudadanoInicioResponse;
 import gt.municipalidad.qrds.dto.AuthDtos.RegistroCiudadanoRequest;
 import gt.municipalidad.qrds.dto.AuthDtos.SesionResponse;
@@ -42,6 +43,11 @@ public class AuthController {
             HttpServletRequest http) {
         return ciudadanoRegistroService.iniciar(
                 request, HttpRequests.ipCliente(http), HttpRequests.userAgent(http));
+    }
+
+    @PostMapping("/ciudadano/reenviar-codigo")
+    public MensajeResponse reenviarCodigo(@Valid @RequestBody ReenviarCodigoRequest request) {
+        return ciudadanoRegistroService.reenviarCodigo(request.registroId());
     }
 
     @PostMapping("/ciudadano/confirmar")

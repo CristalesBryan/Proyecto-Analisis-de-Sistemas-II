@@ -4,6 +4,7 @@ import gt.municipalidad.qrds.dto.CasoDtos.CasoDetalle;
 import gt.municipalidad.qrds.dto.SeguimientoDtos.RegistroSeguimientoRespuesta;
 import gt.municipalidad.qrds.dto.SeguimientoDtos.SeguimientoInterno;
 import gt.municipalidad.qrds.entity.Caso;
+import gt.municipalidad.qrds.entity.EstadoCaso;
 import gt.municipalidad.qrds.entity.Permiso;
 import gt.municipalidad.qrds.entity.Rol;
 import gt.municipalidad.qrds.entity.SeguimientoCaso;
@@ -66,8 +67,15 @@ public class SeguimientoRegistroService {
             String ip) {
         Permisos.exigir(usuario, Permiso.CASOS_GESTIONAR);
         Caso caso = casoGestionService.localizarGestionable(casoId, usuario);
-        boolean abierto = caso.getEstado().name().equals("EN_REVISION") || caso.getEstado().name().equals("EN_PROCESO");
-        boolean excepcional = !abierto && usuario.getRol() == Rol.ADMIN;
+        if (caso.getEstado() == EstadoCaso.RESUELTO) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_NO_MODIFICABLE",
+                    "El caso está resuelto y solo puede consultarse.");
+        }
+        boolean abierto = caso.getEstado() == EstadoCaso.EN_REVISION || caso.getEstado() == EstadoCaso.EN_PROCESO;
+        boolean excepcional = (caso.getEstado() == EstadoCaso.CERRADO || caso.getEstado() == EstadoCaso.ANULADO)
+                && usuario.getRol() == Rol.ADMIN;
         if (!abierto && !excepcional) {
             casoGestionService.exigirAbierto(caso);
         }
@@ -82,6 +90,10 @@ public class SeguimientoRegistroService {
         TipoSeguimiento tipo = parsearTipo(excepcional ? "INTERNA" : tipoValor);
         validarTexto(titulo, descripcion);
         Integer porcentaje = parsearPorcentaje(porcentajeValor);
+        if (porcentaje != null) {
+            porcentaje = Math.min(100, caso.getAvancePorcentaje() + porcentaje);
+            caso.setAvancePorcentaje(porcentaje);
+        }
         SeguimientoCaso padre = null;
         if (tipo == TipoSeguimiento.CORRECCION) {
             if (padreValor == null || padreValor.isBlank()) {
@@ -153,9 +165,6 @@ public class SeguimientoRegistroService {
                 rutaArchivo,
                 tipoMime,
                 tamanio));
-        if (porcentaje != null) {
-            caso.setAvancePorcentaje(porcentaje);
-        }
         caso.tocar();
         bitacoraCasoService.registrar(
                 caso,

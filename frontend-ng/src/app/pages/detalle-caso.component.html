@@ -192,29 +192,45 @@
       </div>
 
       <aside class="col-xl-4">
+        @if (caso.estado === 'RESUELTO') {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Caso resuelto</h2>
+            <p class="small text-secondary">El caso ya fue resuelto. La información solo puede consultarse.</p>
+            @if (puedeCerrar) {
+              <a class="btn btn-primary w-100" [routerLink]="['/casos', caso.id, 'cerrar']">Cerrar caso</a>
+            }
+          </div>
+        }
         @if (caso.estado === 'CERRADO') {
           <div class="panel p-4 mb-3">
             <h2 class="h5">Expediente cerrado</h2>
             <p class="small text-secondary mb-0">El caso quedó archivado. La información y el historial se conservan para consulta; no admite modificaciones ni nuevos adjuntos.</p>
           </div>
         }
-        @if (abiertoSeguimiento) {
+        @if (caso.estado === 'EN_PROCESO') {
           <div class="panel p-4 mb-3">
             <h2 class="h5">Resolver caso</h2>
-            <p class="small text-secondary">El porcentaje de avance no cierra el expediente. La resolución formal corresponde al CU-05.</p>
-            <a class="btn btn-primary w-100" [routerLink]="['/casos', caso.id, 'resolver']">Proceder a resolver</a>
+            <p class="small text-secondary">Registre la respuesta formal. El caso pasará a resuelto y quedará la operación en el historial.</p>
+            <a class="btn btn-primary w-100" [routerLink]="['/casos', caso.id, 'resolver']">Resolver caso</a>
           </div>
         }
         @if (puedePlazo && abiertoSeguimiento) {
           <div class="panel p-4 mb-3">
             <h2 class="h5">Plazo</h2>
-            <label class="form-label">Días hábiles de prórroga (1–15)
-              <input class="form-control mt-1" type="number" min="1" max="15" [value]="diasProrroga" (input)="diasProrroga = valor($event)">
-            </label>
-            <textarea class="form-control mb-2" rows="3" [value]="justificacionProrroga" (input)="justificacionProrroga = valor($event)" placeholder="Justificación de prórroga"></textarea>
-            <button type="button" class="btn btn-primary w-100 mb-3" (click)="confirmar = 'prorroga'">Registrar prórroga</button>
-            <textarea class="form-control mb-2" rows="3" [value]="motivoEscalar" (input)="motivoEscalar = valor($event)" placeholder="Motivo de escalamiento"></textarea>
-            <button type="button" class="btn btn-outline-civic w-100" (click)="confirmar = 'escalar'">Escalar caso</button>
+            <div class="mb-3">
+              <label class="form-label" for="dias-prorroga">Días hábiles de prórroga (1–15)</label>
+              <input id="dias-prorroga" class="form-control" type="number" min="1" max="15" [value]="diasProrroga" (input)="diasProrroga = valor($event)">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="justificacion-prorroga">Justificación</label>
+              <textarea id="justificacion-prorroga" class="form-control" rows="3" [value]="justificacionProrroga" (input)="justificacionProrroga = valor($event)" placeholder="Justificación de la prórroga (mínimo 20 caracteres)"></textarea>
+            </div>
+            <button type="button" class="btn btn-primary w-100 mb-3" [disabled]="!prorrogaLista" (click)="prepararProrroga()">Registrar prórroga</button>
+            <div class="mb-3">
+              <label class="form-label" for="motivo-escalar">Motivo de escalamiento</label>
+              <textarea id="motivo-escalar" class="form-control" rows="3" [value]="motivoEscalar" (input)="motivoEscalar = valor($event)" placeholder="Motivo de escalamiento (mínimo 10 caracteres)"></textarea>
+            </div>
+            <button type="button" class="btn btn-outline-civic w-100" [disabled]="motivoEscalar.trim().length < 10" (click)="confirmar = 'escalar'">Escalar caso</button>
           </div>
         }
         @if (puedeAsignar && !finalizado) {
@@ -245,16 +261,8 @@
                 <option [value]="estado">{{ etiquetaEstado(estado) }}</option>
               }
             </select>
-            <textarea class="form-control mb-2" rows="4" [value]="observacionEstado" (input)="observacionEstado = valor($event)" placeholder="Observación de la transición"></textarea>
-            <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'estado'">Cambiar estado</button>
-          </div>
-        }
-        @if (puedeCerrar && caso.estado === 'RESUELTO') {
-          <div class="panel p-4 mb-3">
-            <h2 class="h5">Cerrar caso</h2>
-            <p class="small text-secondary">El cierre archiva el expediente resuelto. Documente la operación antes de confirmar.</p>
-            <textarea class="form-control mb-2" rows="3" [value]="observacionCierre" (input)="observacionCierre = valor($event)" placeholder="Observación de cierre"></textarea>
-            <button type="button" class="btn btn-primary w-100" [disabled]="observacionCierre.trim().length < 20" (click)="confirmar = 'cerrar'">Cerrar caso</button>
+            <textarea class="form-control mb-2" rows="4" [value]="observacionEstado" (input)="observacionEstado = valor($event)" placeholder="Observación de la transición (mínimo 10 caracteres)"></textarea>
+            <button type="button" class="btn btn-primary w-100" [disabled]="observacionEstado.trim().length < 10" (click)="prepararCambioEstado()">Cambiar estado</button>
           </div>
         }
         @if (puedeAnular && !finalizado && caso.transicionesPermitidas.includes('ANULADO')) {
@@ -273,6 +281,9 @@
       <div class="panel p-4 w-100" style="max-width: 28rem;">
         <h2 class="h4">Confirmar acción</h2>
         <p class="small text-secondary">{{ mensajeConfirmacion }}</p>
+        @if (error) {
+          <div class="alert alert-danger">{{ error }}</div>
+        }
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-primary" [disabled]="enviando" (click)="ejecutar()">
             {{ enviando ? 'Aplicando…' : 'Confirmar' }}

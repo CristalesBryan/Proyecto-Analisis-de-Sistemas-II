@@ -1,0 +1,104 @@
+@startuml diagrama-paquetes
+title Diagrama de paquetes — Sistema QRDS
+
+!pragma layout smetana
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam dpi 140
+skinparam defaultFontName Segoe UI
+skinparam defaultFontSize 13
+skinparam packageStyle rectangle
+skinparam linetype ortho
+skinparam nodesep 24
+skinparam ranksep 32
+skinparam PackageBorderColor #1F4E79
+skinparam PackageBackgroundColor #F7FAFC
+skinparam ArrowColor #1F4E79
+skinparam ArrowThickness 1.2
+skinparam NoteBorderColor #8A7340
+skinparam NoteBackgroundColor #FFF8E8
+
+package "Presentación Angular\nfrontend-ng/src/app" #EEF4FA {
+  package "pages"
+  package "shared"
+  package "core"
+}
+
+package "gt.municipalidad.qrds\nAPI Spring Boot" #F3F8F3 {
+  together {
+    package "controller"
+    package "security"
+    package "config"
+  }
+  together {
+    package "service"
+    package "dto"
+    package "exception"
+  }
+  together {
+    package "repository"
+    package "entity"
+    package "util"
+  }
+}
+
+package "database" #F8F4EE {
+  package "schema.sql"
+  package "seed.sql"
+}
+
+pages --> shared
+pages --> core
+shared --> core
+
+core ..> controller : «REST /api»
+
+controller --> service
+controller --> dto
+controller --> security
+controller --> exception
+config --> security
+config --> exception
+
+service --> repository
+service --> entity
+service --> dto
+service --> util
+service --> exception
+security ..> entity
+
+repository --> entity
+repository ..> "schema.sql" : JDBC
+
+note as contenido
+  controller: Auth, CasoPublico, CasoGestion, Seguimiento,
+  Documento, Ciudadano, Catalogo, Bitacora, Sistema
+  --
+  service: Auth, CasoRegistro, CasoPublico, CasoGestion,
+  Seguimiento, Documento, Ciudadano, Notificacion,
+  Recaptcha, Correlativo, Plazo, Bitácoras
+  --
+  repository: Caso, Usuario, Seguimiento, Documento,
+  Observación, Bitácoras, Área, Correlativo
+  --
+  entity: Caso, Usuario, SeguimientoCaso, DocumentoCaso,
+  BitacoraCaso, AreaDependencia, Rol, EstadoCaso
+  --
+  dto: Auth, Caso, CasoPublico, Seguimiento,
+  Documento, Ciudadano, Sistema
+  --
+  security: JwtService, JwtAuthFilter, UsuarioPrincipal
+  config: SecurityConfig, RateLimitFilter, DataInitializer
+  util: Archivos, Permisos, HttpRequests
+  --
+  pages: portal, login, registro, bandeja, detalle, dashboard, cuenta
+  shared: sesion-shell, internal-layout, seguimiento, recaptcha
+  core: api.service, auth.service, models, etiquetas
+end note
+
+note bottom
+  Flecha continua: dependencia de compilación dentro del mismo artefacto.
+  Flecha punteada: uso en ejecución (HTTP hacia la API, o JDBC hacia PostgreSQL).
+end note
+
+@enduml
