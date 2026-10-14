@@ -1,0 +1,24 @@
+# Excluir scripts y SQL del cálculo de lenguajes de GitHub (Linguist).
+# El Maven Wrapper y los scripts shell/batch se marcan como vendored.
+# Los .sql dejan de contarse como PLpgSQL, pero siguen versionados.
+
+# Maven Wrapper (patrones generales y rutas reales del repo)
+mvnw linguist-vendored
+mvnw.cmd linguist-vendored
+mvnwDebug linguist-vendored
+mvnwDebug.cmd linguist-vendored
+.mvn/** linguist-vendored
+backend/mvnw linguist-vendored
+backend/mvnw.cmd linguist-vendored
+backend/mvnwDebug linguist-vendored
+backend/mvnwDebug.cmd linguist-vendored
+backend/.mvn/** linguist-vendored
+
+# Scripts de shell y batch
+*.sh linguist-vendored
+*.bat linguist-vendored
+*.cmd linguist-vendored
+
+# Scripts SQL (esquema, seeds y migraciones)
+*.sql linguist-detectable=false
+database/*.sql linguist-detectable=false
