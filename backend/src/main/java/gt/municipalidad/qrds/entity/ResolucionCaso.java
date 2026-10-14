@@ -81,4 +81,28 @@ public class ResolucionCaso {
         this.notificado = enviada;
         this.estadoNotificacion = enviada ? "ENVIADA" : "OMITIDA";
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Usuario getUsuario() {
+        return usuario;
+    }
+
+    public String getComentario() {
+        return comentario;
+    }
+
+    public TipoResultado getTipoResultado() {
+        return tipoResultado;
+    }
+
+    public String getEstadoNotificacion() {
+        return estadoNotificacion;
+    }
+
+    public Instant getCreadoEn() {
+        return creadoEn;
+    }
 }

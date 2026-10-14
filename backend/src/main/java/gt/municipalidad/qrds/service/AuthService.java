@@ -9,7 +9,6 @@ import gt.municipalidad.qrds.exception.ApiException;
 import gt.municipalidad.qrds.repository.UsuarioRepository;
 import gt.municipalidad.qrds.security.JwtService;
 import gt.municipalidad.qrds.security.UsuarioPrincipal;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,22 +29,19 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final BitacoraAccesoService bitacoraAccesoService;
-    private final int maxIntentos;
-    private final int bloqueoMinutos;
+    private final ParametroService parametroService;
 
     public AuthService(
             UsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             BitacoraAccesoService bitacoraAccesoService,
-            @Value("${qrds.login.max-intentos}") int maxIntentos,
-            @Value("${qrds.login.bloqueo-minutos}") int bloqueoMinutos) {
+            ParametroService parametroService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.bitacoraAccesoService = bitacoraAccesoService;
-        this.maxIntentos = maxIntentos;
-        this.bloqueoMinutos = bloqueoMinutos;
+        this.parametroService = parametroService;
     }
 
     @Transactional(noRollbackFor = ApiException.class)
@@ -79,7 +75,7 @@ public class AuthService {
         }
 
         if (!passwordEncoder.matches(request.password(), usuario.getPasswordHash())) {
-            usuario.registrarIntentoFallido(maxIntentos, bloqueoMinutos);
+            usuario.registrarIntentoFallido(parametroService.intentosAcceso(), parametroService.minutosBloqueo());
             if (usuario.estaBloqueado()) {
                 bitacoraAccesoService.registrar(
                         usuario, TipoEventoAcceso.BLOQUEADO, ip, userAgent, "BLOQUEADO",

@@ -81,13 +81,14 @@ public final class CasoMapper {
                 caso.getFechaProrroga());
     }
 
-    public static AgenteOpcion agente(Usuario usuario) {
+    public static AgenteOpcion agente(Usuario usuario, int casosAbiertos) {
         return new AgenteOpcion(
                 usuario.getId(),
                 usuario.getNombre(),
                 usuario.getEmail(),
                 usuario.getAreaDependencia() == null ? null : usuario.getAreaDependencia().getCodigo(),
-                usuario.getAreaDependencia() == null ? null : usuario.getAreaDependencia().getNombre());
+                usuario.getAreaDependencia() == null ? null : usuario.getAreaDependencia().getNombre(),
+                casosAbiertos);
     }
 
     private static ObservacionResumen observacion(ObservacionCaso item) {

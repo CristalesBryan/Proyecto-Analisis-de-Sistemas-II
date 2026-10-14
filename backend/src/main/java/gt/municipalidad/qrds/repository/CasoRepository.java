@@ -14,6 +14,12 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface CasoRepository extends JpaRepository<Caso, Long>, JpaSpecificationExecutor<Caso> {
     Optional<Caso> findByCodigoSeguimientoIgnoreCase(String codigoSeguimiento);
 
+    long countByAgenteAsignado_IdAndEstadoNotIn(Long agenteId, Collection<EstadoCaso> estados);
+
+    long countByAreaDependencia_Id(Long areaId);
+
+    List<Caso> findByTipoCasoAndEstadoNotIn(TipoCaso tipoCaso, Collection<EstadoCaso> estados);
+
     List<Caso> findByEmailCiudadanoIgnoreCaseAndTipoCasoAndFechaRegistroAfterAndEstadoNotIn(
             String email,
             TipoCaso tipoCaso,

@@ -2,6 +2,14 @@
   <div class="mb-4">
     <p class="small text-secondary mb-1">Gestión interna · {{ usuario?.rol }}</p>
     <h1 class="h2 mb-0">{{ titulo }}</h1>
+    @if (filtros.vencido || filtros.abiertos || filtros.soloAsignados) {
+      <p class="small mt-2 mb-0">
+        @if (filtros.vencido) { Casos vencidos o escalados que siguen abiertos. }
+        @if (filtros.abiertos) { Casos que no están cerrados ni anulados. }
+        @if (filtros.soloAsignados) { Solo los casos asignados a usted. }
+        <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="quitarFiltroDelTablero()">Quitar filtro</button>
+      </p>
+    }
   </div>
 
   <form class="panel p-3 mb-4" (submit)="$event.preventDefault()">
@@ -51,6 +59,46 @@
     </div>
   </form>
 
+  @if (esAdmin && seleccion.size > 0) {
+    <form class="panel p-3 mb-4" (submit)="$event.preventDefault(); reasignarSeleccion()">
+      <h2 class="h6">Reasignar casos seleccionados</h2>
+      <p class="small text-secondary">{{ seleccion.size }} caso{{ seleccion.size === 1 ? '' : 's' }} de {{ origenMasivo }}. Máximo 50. El estado de cada caso no cambia.</p>
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label" for="agente-masivo">Nuevo agente</label>
+          <select id="agente-masivo" class="form-select" [value]="agenteMasivo" (change)="agenteMasivo = texto($event)">
+            @for (agente of agentesMasivos; track agente.id) {
+              <option [value]="agente.id">{{ agente.nombre }} · {{ agente.areaNombre }} · {{ agente.casosAbiertos }} abiertos</option>
+            }
+          </select>
+        </div>
+        <div class="col-md-8">
+          <label class="form-label" for="motivo-masivo">Justificación</label>
+          <textarea id="motivo-masivo" class="form-control" rows="3" maxlength="1000" [class.is-invalid]="motivoMasivo.trim().length > 0 && motivoMasivo.trim().length < 50" [value]="motivoMasivo" (input)="motivoMasivo = texto($event)" placeholder="Justificación común, entre 50 y 1000 caracteres"></textarea>
+          <p class="small mb-2" [class.text-danger]="motivoMasivo.trim().length > 0 && motivoMasivo.trim().length < 50" [class.text-secondary]="motivoMasivo.trim().length === 0 || motivoMasivo.trim().length >= 50">{{ motivoMasivo.trim().length }} / 1000@if (motivoMasivo.trim().length > 0 && motivoMasivo.trim().length < 50) { · La justificación debe tener entre 50 y 1000 caracteres.}</p>
+        </div>
+      </div>
+      <label class="form-check mb-3">
+        <input type="checkbox" class="form-check-input" [checked]="notificarMasivo" (change)="notificarMasivo = marcado($event)">
+        <span class="form-check-label">Avisar al agente que recibe los casos y al que los deja</span>
+      </label>
+      <button type="submit" class="btn btn-primary" [disabled]="!masivoListo || enviandoMasivo">
+        {{ enviandoMasivo ? 'Reasignando…' : 'Reasignar selección' }}
+      </button>
+    </form>
+  }
+
+  @if (resultadosMasivo.length > 0) {
+    <div class="panel p-3 mb-4">
+      <h2 class="h6">Resultado de la reasignación</h2>
+      <ul class="mb-0">
+        @for (resultado of resultadosMasivo; track resultado.casoId) {
+          <li>{{ resultado.codigo || resultado.casoId }}: {{ resultado.mensaje }}</li>
+        }
+      </ul>
+    </div>
+  }
+
   @if (error) {
     <div class="alert alert-danger" role="alert">
       {{ error }}
@@ -62,6 +110,9 @@
     <table class="table table-hover mb-0 bandeja">
       <thead>
         <tr>
+          @if (esAdmin) {
+            <th>Sel.</th>
+          }
           <th (click)="ordenar('codigo')">Código</th>
           <th (click)="ordenar('tipo')">Tipo</th>
           <th>Ciudadano</th>
@@ -75,12 +126,17 @@
       </thead>
       <tbody>
         @if (cargando) {
-          <tr><td colspan="9" class="text-center text-secondary py-5">Cargando bandeja…</td></tr>
+          <tr><td [attr.colspan]="esAdmin ? 10 : 9" class="text-center text-secondary py-5">Cargando bandeja…</td></tr>
         } @else if (casos.length === 0) {
-          <tr><td colspan="9" class="text-center text-secondary py-5">No se encontraron casos con los criterios indicados.</td></tr>
+          <tr><td [attr.colspan]="esAdmin ? 10 : 9" class="text-center text-secondary py-5">No se encontraron casos con los criterios indicados.</td></tr>
         } @else {
           @for (caso of casos; track caso.id) {
             <tr>
+              @if (esAdmin) {
+                <td>
+                  <input type="checkbox" [checked]="seleccion.has(caso.id)" [disabled]="!puedeMarcar(caso) && !seleccion.has(caso.id)" (change)="alternar(caso, marcado($event))" [attr.aria-label]="'Seleccionar ' + caso.codigoSeguimiento">
+                </td>
+              }
               <td class="fw-medium">{{ caso.codigoSeguimiento }}</td>
               <td>{{ caso.tipo }}</td>
               <td>{{ caso.ciudadano }}</td>

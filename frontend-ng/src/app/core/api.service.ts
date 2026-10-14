@@ -4,18 +4,35 @@ import {
   AgenteOpcion,
   ApiError,
   AreaDependencia,
+  AreaParametro,
+  ConfiguracionParametros,
+  FeriadoParametro,
+  InstitucionPublica,
+  AreaAdmin,
   CasoDetalle,
   CasoPublico,
+  PaginaHistorial,
+  VistaCiudadano,
+  CatalogoReporte,
   CuentaCiudadano,
   DocumentoCaso,
   FiltrosBandeja,
   ListaSeguimientos,
+  EventoBitacora,
+  PaginaBitacora,
   PaginaCasos,
+  PaginaUsuarios,
   RegistroCasoPayload,
+  ReporteGenerado,
+  ReporteResumen,
+  ResumenDashboard,
   RegistroCasoRespuesta,
+  ResultadoReasignacion,
   RegistroCiudadanoPayload,
   SeguimientoCaso,
   SistemaEstado,
+  UsuarioAccion,
+  UsuarioAdmin,
   UsuarioAutenticado,
 } from './models';
 
@@ -117,6 +134,102 @@ export class ApiService {
     return this.apiFetch('/api/catalogos/areas').then((res) => this.parsearJson<AreaDependencia[]>(res));
   }
 
+  obtenerInstitucion() {
+    return this.apiFetch('/api/catalogos/institucion').then((res) => this.parsearJson<InstitucionPublica>(res));
+  }
+
+  consultarParametros() {
+    return this.apiFetch('/api/parametros').then((res) => this.parsearJson<ConfiguracionParametros>(res));
+  }
+
+  guardarParametro(clave: string, valor: string, version: number) {
+    return this.apiFetch(`/api/parametros/${encodeURIComponent(clave)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valor, version }),
+    }).then((res) => this.parsearJson<{ mensaje: string; valorNuevo: string; version: number }>(res));
+  }
+
+  restaurarParametros(grupo: string) {
+    return this.apiFetch(`/api/parametros/grupos/${grupo}/restaurar`, { method: 'POST' }).then((res) =>
+      this.parsearJson<{ mensaje: string }>(res),
+    );
+  }
+
+  crearAreaParametro(codigo: string, nombre: string) {
+    return this.apiFetch('/api/parametros/areas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo, nombre }),
+    }).then((res) => this.parsearJson<{ mensaje: string; advertencia?: string }>(res));
+  }
+
+  actualizarAreaParametro(area: AreaParametro) {
+    return this.apiFetch(`/api/parametros/areas/${area.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        codigo: area.codigo,
+        nombre: area.nombre,
+        activo: area.activo,
+        version: area.version,
+      }),
+    }).then((res) => this.parsearJson<{ mensaje: string; advertencia?: string | null }>(res));
+  }
+
+  eliminarAreaParametro(id: number) {
+    return this.apiFetch(`/api/parametros/areas/${id}`, { method: 'DELETE' }).then((res) => {
+      if (!res.ok) return this.parsearJson(res);
+      return undefined;
+    });
+  }
+
+  crearFeriado(fecha: string, descripcion: string) {
+    return this.apiFetch('/api/parametros/feriados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fecha, descripcion }),
+    }).then((res) => this.parsearJson<FeriadoParametro>(res));
+  }
+
+  eliminarFeriado(fecha: string) {
+    return this.apiFetch(`/api/parametros/feriados/${fecha}`, { method: 'DELETE' }).then((res) => {
+      if (!res.ok) return this.parsearJson(res);
+      return undefined;
+    });
+  }
+
+  recalcularPlazos(tipo: string) {
+    return this.apiFetch('/api/parametros/plazos/recalcular', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tipo, confirmar: true }),
+    }).then((res) => this.parsearJson<{ mensaje: string }>(res));
+  }
+
+  exportarParametros() {
+    return this.apiFetch('/api/parametros/exportar').then(async (res) => {
+      if (!res.ok) return this.parsearJson(res);
+      const cuerpo = await res.text();
+      const blob = new Blob([cuerpo], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = 'parametros-qrds.json';
+      enlace.click();
+      URL.revokeObjectURL(url);
+      return undefined;
+    });
+  }
+
+  importarParametros(archivo: File) {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return this.apiFetch('/api/parametros/importar', { method: 'POST', body: datos }).then((res) =>
+      this.parsearJson<{ mensaje: string }>(res),
+    );
+  }
+
   registrarCasoPublico(payload: RegistroCasoPayload) {
     return this.apiFetch('/api/casos/publico', {
       method: 'POST',
@@ -147,9 +260,10 @@ export class ApiService {
     );
   }
 
-  adjuntarDocumentosInterno(casoId: number, archivos: File[]) {
+  adjuntarDocumentosInterno(casoId: number, archivos: File[], justificacion?: string) {
     const form = new FormData();
     for (const archivo of archivos) form.append('archivos', archivo);
+    if (justificacion) form.append('justificacion', justificacion);
     return this.apiFetch(`/api/casos/${casoId}/documentos`, {
       method: 'POST',
       body: form,
@@ -162,6 +276,177 @@ export class ApiService {
     );
   }
 
+  catalogoReportes() {
+    return this.apiFetch('/api/reportes/catalogo').then((res) => this.parsearJson<CatalogoReporte[]>(res));
+  }
+
+  generarReporte(payload: {
+    tipo: string;
+    formato: 'PANTALLA' | 'PDF' | 'XLSX';
+    filtros: {
+      fechaDesde: string;
+      fechaHasta: string;
+      tipoCaso?: string;
+      estado?: string;
+      area?: string;
+      agenteId?: number | null;
+      incluirAnulados: boolean;
+    };
+  }) {
+    return this.apiFetch('/api/reportes/generar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      timeoutMs: 30000,
+    }).then((res) => this.parsearJson<ReporteGenerado>(res));
+  }
+
+  listarReportes() {
+    return this.apiFetch('/api/reportes/jobs').then((res) => this.parsearJson<ReporteResumen[]>(res));
+  }
+
+  areasAdministracion() {
+    return this.apiFetch('/api/usuarios/catalogos/areas').then((res) => this.parsearJson<AreaAdmin[]>(res));
+  }
+
+  listarUsuarios(filtros: {
+    q?: string;
+    rol?: string;
+    area?: string;
+    activo?: string;
+    page?: number;
+    size?: number;
+  }) {
+    const params = new URLSearchParams();
+    for (const [clave, valor] of Object.entries(filtros)) {
+      if (valor === undefined || valor === '') continue;
+      params.set(clave, String(valor));
+    }
+    const query = params.toString();
+    return this.apiFetch(`/api/usuarios${query ? `?${query}` : ''}`).then((res) =>
+      this.parsearJson<PaginaUsuarios>(res),
+    );
+  }
+
+  crearUsuario(payload: {
+    nombre: string;
+    email: string;
+    rol: string;
+    areaId: number | null;
+    password?: string;
+    generarPassword?: boolean;
+    activo: boolean;
+  }) {
+    return this.apiFetch('/api/usuarios', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then((res) => this.parsearJson<UsuarioAccion>(res));
+  }
+
+  actualizarUsuario(
+    id: number,
+    payload: { nombre: string; email: string; rol: string; areaId: number | null; activo: boolean },
+  ) {
+    return this.apiFetch(`/api/usuarios/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then((res) => this.parsearJson<UsuarioAccion>(res));
+  }
+
+  restablecerContrasena(id: number, nuevaPassword?: string) {
+    return this.apiFetch(`/api/usuarios/${id}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(nuevaPassword ? { nuevaPassword } : {}),
+    }).then((res) => this.parsearJson<UsuarioAccion>(res));
+  }
+
+  cambiarContrasenaPropia(actual: string, nueva: string, confirmacion: string) {
+    return this.apiFetch('/api/usuarios/me/cambiar-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actual, nueva, confirmacion }),
+    }).then((res) =>
+      this.parsearJson<{ mensaje: string; token: string; usuario: UsuarioAutenticado }>(res),
+    );
+  }
+
+  obtenerReporte(id: number) {
+    return this.apiFetch(`/api/reportes/jobs/${id}`).then((res) => this.parsearJson<ReporteGenerado>(res));
+  }
+
+  async descargarReporte(id: number, nombre: string) {
+    const res = await this.apiFetch(`/api/reportes/jobs/${id}/descarga`, { timeoutMs: 30000 });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const error = new Error(body.mensaje || 'No fue posible descargar el reporte.') as ApiError;
+      error.status = res.status;
+      error.codigo = body.codigo;
+      throw error;
+    }
+    const dispuesto = res.headers.get('Content-Disposition') || '';
+    const coincidencia = dispuesto.match(/filename="([^"]+)"/);
+    await this.descargarBlob(res, coincidencia?.[1] || nombre);
+  }
+
+  listarBitacoras(filtros: {
+    desde: string;
+    hasta: string;
+    dominio?: string;
+    tipo?: string;
+    usuarioId?: string;
+    caso?: string;
+    ip?: string;
+    resultado?: string;
+    page?: number;
+  }) {
+    const params = new URLSearchParams();
+    for (const [clave, valor] of Object.entries(filtros)) {
+      if (valor === undefined || valor === '') continue;
+      params.set(clave, String(valor));
+    }
+    return this.apiFetch(`/api/bitacoras?${params.toString()}`).then((res) =>
+      this.parsearJson<PaginaBitacora>(res),
+    );
+  }
+
+  detalleBitacora(clave: string) {
+    const separador = clave.indexOf(':');
+    const dominio = clave.slice(0, separador);
+    const id = clave.slice(separador + 1);
+    return this.apiFetch(`/api/bitacoras/${dominio}/${id}`).then((res) => this.parsearJson<EventoBitacora>(res));
+  }
+
+  async exportarBitacora(
+    filtros: { desde: string; hasta: string; dominio?: string; tipo?: string; usuarioId?: number | null; caso?: string; ip?: string; resultado?: string },
+    formato: 'PDF' | 'XLSX',
+  ) {
+    const res = await this.apiFetch('/api/bitacoras/exportar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filtros, formato }),
+      timeoutMs: 30000,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const error = new Error(body.mensaje || 'No fue posible exportar la bitácora.') as ApiError;
+      error.status = res.status;
+      error.codigo = body.codigo;
+      throw error;
+    }
+    const dispuesto = res.headers.get('Content-Disposition') || '';
+    const coincidencia = dispuesto.match(/filename="([^"]+)"/);
+    await this.descargarBlob(res, coincidencia?.[1] || (formato === 'PDF' ? 'auditoria.pdf' : 'auditoria.xlsx'));
+  }
+
+  consultarDashboard(periodo: string) {
+    return this.apiFetch(`/api/dashboard/resumen?periodo=${encodeURIComponent(periodo)}`).then((res) =>
+      this.parsearJson<ResumenDashboard>(res),
+    );
+  }
+
   listarCasos(filtros: FiltrosBandeja = {}) {
     const query = this.queryBandeja(filtros);
     return this.apiFetch(`/api/casos${query ? `?${query}` : ''}`).then((res) =>
@@ -171,6 +456,34 @@ export class ApiService {
 
   obtenerCaso(id: number) {
     return this.apiFetch(`/api/casos/${id}`).then((res) => this.parsearJson<CasoDetalle>(res));
+  }
+
+  consultarHistorial(casoId: number, categoria = '', q = '', page = 0) {
+    const params = new URLSearchParams();
+    if (categoria) params.set('categoria', categoria);
+    if (q.trim()) params.set('q', q.trim());
+    params.set('page', String(page));
+    return this.apiFetch(`/api/casos/${casoId}/historial?${params.toString()}`).then((res) =>
+      this.parsearJson<PaginaHistorial>(res),
+    );
+  }
+
+  vistaCiudadano(casoId: number) {
+    return this.apiFetch(`/api/casos/${casoId}/historial/vista-ciudadano`).then((res) =>
+      this.parsearJson<VistaCiudadano>(res),
+    );
+  }
+
+  async exportarHistorial(casoId: number, categoria = '', q = '') {
+    const params = new URLSearchParams();
+    if (categoria) params.set('categoria', categoria);
+    if (q.trim()) params.set('q', q.trim());
+    const query = params.toString();
+    const res = await this.apiFetch(`/api/casos/${casoId}/historial/export.pdf${query ? `?${query}` : ''}`);
+    if (!res.ok) throw new Error('No fue posible exportar el historial.');
+    const dispuesto = res.headers.get('Content-Disposition') || '';
+    const coincidencia = dispuesto.match(/filename="([^"]+)"/);
+    await this.descargarBlob(res, coincidencia?.[1] || 'historial.pdf');
   }
 
   modificarCaso(
@@ -206,12 +519,26 @@ export class ApiService {
     }).then((res) => this.parsearJson<{ mensaje: string; caso: CasoDetalle }>(res));
   }
 
-  reasignarCaso(id: number, agenteId: number, motivo: string) {
+  reasignarCaso(
+    id: number,
+    agenteId: number,
+    motivo: string,
+    notificar = true,
+    actualizarArea = false,
+  ) {
     return this.apiFetch(`/api/casos/${id}/reasignar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agenteId, motivo }),
+      body: JSON.stringify({ agenteId, motivo, notificar, actualizarArea }),
     }).then((res) => this.parsearJson<{ mensaje: string; caso: CasoDetalle }>(res));
+  }
+
+  reasignarCasos(ids: number[], agenteId: number, motivo: string, notificar = true) {
+    return this.apiFetch('/api/casos/reasignar-masivo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, agenteId, motivo, notificar }),
+    }).then((res) => this.parsearJson<{ resultados: ResultadoReasignacion[] }>(res));
   }
 
   cambiarEstadoCaso(id: number, nuevoEstado: string, observacion: string) {
@@ -252,6 +579,14 @@ export class ApiService {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ observacion }),
     }).then((res) => this.parsearJson<{ mensaje: string; caso: CasoDetalle }>(res));
+  }
+
+  darBajaDocumento(casoId: number, docId: number, justificacion: string) {
+    return this.apiFetch(`/api/casos/${casoId}/documentos/${docId}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ justificacion }),
+    }).then((res) => this.parsearJson<{ mensaje: string }>(res));
   }
 
   async descargarDocumentoCaso(casoId: number, docId: number, nombre: string) {

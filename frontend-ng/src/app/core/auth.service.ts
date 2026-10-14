@@ -19,7 +19,7 @@ export class AuthService {
   readonly inicioPorRol: Record<Rol, string> = {
     ADMIN: '/admin/dashboard',
     SUPERVISOR: '/supervisor/dashboard',
-    AGENTE: '/agente/casos',
+    AGENTE: '/agente/dashboard',
     CIUDADANO: '/ciudadano',
   };
 
@@ -28,7 +28,7 @@ export class AuthService {
   }
 
   destinoDeRol(rol: string) {
-    return this.esRol(rol) ? this.destinosPorRol[rol] : '/acceso-denegado';
+    return this.esRol(rol) ? this.inicioPorRol[rol] : '/acceso-denegado';
   }
 
   guardarSesion(token: string, usuario: UsuarioAutenticado) {

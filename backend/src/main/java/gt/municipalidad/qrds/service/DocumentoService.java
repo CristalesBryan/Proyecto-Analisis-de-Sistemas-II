@@ -4,26 +4,27 @@ import gt.municipalidad.qrds.dto.DocumentoDtos.ArchivoRechazado;
 import gt.municipalidad.qrds.dto.DocumentoDtos.ArchivoSubido;
 import gt.municipalidad.qrds.dto.DocumentoDtos.CargaDocumentosRespuesta;
 import gt.municipalidad.qrds.dto.DocumentoDtos.DocumentoResumen;
+import gt.municipalidad.qrds.dto.DocumentoDtos.MensajeDocumento;
 import gt.municipalidad.qrds.entity.Caso;
 import gt.municipalidad.qrds.entity.DocumentoCaso;
 import gt.municipalidad.qrds.entity.EstadoCaso;
 import gt.municipalidad.qrds.entity.OrigenDocumento;
 import gt.municipalidad.qrds.entity.Permiso;
+import gt.municipalidad.qrds.entity.ResolucionCaso;
+import gt.municipalidad.qrds.entity.Rol;
+import gt.municipalidad.qrds.entity.SeguimientoCaso;
 import gt.municipalidad.qrds.entity.TipoEventoCaso;
 import gt.municipalidad.qrds.entity.Usuario;
 import gt.municipalidad.qrds.exception.ApiException;
 import gt.municipalidad.qrds.repository.CasoRepository;
 import gt.municipalidad.qrds.repository.DocumentoCasoRepository;
+import gt.municipalidad.qrds.util.Archivos;
 import gt.municipalidad.qrds.util.Permisos;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
@@ -38,51 +39,88 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class DocumentoService {
 
-    private static final long MAX_BYTES = 5L * 1024 * 1024;
-    private static final int MAX_ARCHIVOS = 5;
-    private static final Set<String> EXTENSIONES = Set.of("pdf", "jpg", "jpeg", "png", "docx");
-    private static final Map<String, String> MIME = Map.of(
-            "pdf", "application/pdf",
-            "jpg", "image/jpeg",
-            "jpeg", "image/jpeg",
-            "png", "image/png",
-            "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    static final int MAX_ARCHIVOS_PUBLICOS = 5;
 
     private final CasoRepository casoRepository;
     private final DocumentoCasoRepository documentoCasoRepository;
     private final BitacoraCasoService bitacoraCasoService;
+    private final CasoGestionService casoGestionService;
+    private final NotificacionService notificacionService;
+    private final ParametroService parametroService;
     private final Path directorio;
+    private final boolean revisionContenido;
 
     public DocumentoService(
             CasoRepository casoRepository,
             DocumentoCasoRepository documentoCasoRepository,
             BitacoraCasoService bitacoraCasoService,
-            @Value("${qrds.archivos.directorio}") String directorio) {
+            CasoGestionService casoGestionService,
+            NotificacionService notificacionService,
+            ParametroService parametroService,
+            @Value("${qrds.archivos.directorio}") String directorio,
+            @Value("${qrds.documentos.revision-contenido:false}") boolean revisionContenido) {
         this.casoRepository = casoRepository;
         this.documentoCasoRepository = documentoCasoRepository;
         this.bitacoraCasoService = bitacoraCasoService;
+        this.casoGestionService = casoGestionService;
+        this.notificacionService = notificacionService;
+        this.parametroService = parametroService;
         this.directorio = Path.of(directorio);
+        this.revisionContenido = revisionContenido;
     }
 
     @Transactional
     public CargaDocumentosRespuesta adjuntarPublico(String codigo, List<MultipartFile> archivos, String ip) {
         Caso caso = casoPorCodigo(codigo);
-        return guardarArchivos(caso, archivos, OrigenDocumento.CIUDADANO, null, ip, "Carga pública de documento ");
+        exigirEstado(caso, false, null, null);
+        return guardarArchivos(caso, archivos, OrigenDocumento.CIUDADANO, null, ip, true, null);
     }
 
     @Transactional
     public CargaDocumentosRespuesta adjuntarInterno(
-            Long casoId, List<MultipartFile> archivos, Usuario usuario, String ip) {
+            Long casoId, List<MultipartFile> archivos, Usuario usuario, String ip, String justificacion) {
         Permisos.exigir(usuario, Permiso.DOCUMENTOS_CARGAR);
-        Caso caso = casoPorId(casoId);
-        return guardarArchivos(caso, archivos, OrigenDocumento.AGENTE, usuario, ip, "Carga interna de documento ");
+        Caso caso = casoVisible(casoId, usuario);
+        exigirEstado(caso, true, usuario, justificacion);
+        String nota = excepcion(caso, justificacion);
+        return guardarArchivos(caso, archivos, OrigenDocumento.AGENTE, usuario, ip, false, nota);
+    }
+
+    @Transactional
+    public void registrarReferencia(
+            Caso caso,
+            SeguimientoCaso seguimiento,
+            ResolucionCaso resolucion,
+            String nombre,
+            String ruta,
+            String mime,
+            long tamanio,
+            Usuario usuario,
+            String ip,
+            String descripcion) {
+        DocumentoCaso documento = documentoCasoRepository.save(new DocumentoCaso(
+                caso,
+                nombre,
+                ruta,
+                mime,
+                tamanio,
+                OrigenDocumento.AGENTE,
+                usuario));
+        if (seguimiento != null) {
+            documento.asociarSeguimiento(seguimiento);
+        }
+        if (resolucion != null) {
+            documento.asociarResolucion(resolucion);
+        }
+        documentoCasoRepository.save(documento);
+        bitacoraCasoService.registrar(caso, usuario, TipoEventoCaso.DOCUMENTO_CARGADO, descripcion, ip);
     }
 
     @Transactional(readOnly = true)
     public List<DocumentoResumen> listar(Long casoId, Usuario usuario) {
         Permisos.exigir(usuario, Permiso.CASOS_VER);
-        Caso caso = casoPorId(casoId);
-        return documentoCasoRepository.findByCasoOrderBySubidoEnDesc(caso).stream()
+        Caso caso = casoVisible(casoId, usuario);
+        return documentoCasoRepository.findActivosByCaso(caso).stream()
                 .map(DocumentoResumen::de)
                 .toList();
     }
@@ -91,18 +129,42 @@ public class DocumentoService {
     public ResponseEntity<Resource> descargar(Long casoId, Long documentoId, Usuario usuario, String ip) {
         Permisos.exigir(usuario, Permiso.DOCUMENTOS_DESCARGAR);
         Caso caso = casoPorId(casoId);
+        if (!casoGestionService.puedeConsultar(usuario, caso)) {
+            bitacoraCasoService.registrarDurable(
+                    caso, usuario, TipoEventoCaso.INTENTO_DESCARGA_DENEGADO,
+                    "Intento de descarga fuera del alcance del usuario.", ip);
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "PERMISO_DENEGADO",
+                    "No tiene permisos para consultar los documentos de este caso.");
+        }
         DocumentoCaso documento = documentoCasoRepository.findByIdAndCaso(documentoId, caso)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "DOCUMENTO_NO_ENCONTRADO",
-                        "El documento solicitado no existe en este caso."));
-        Path ruta = Path.of(documento.getRutaArchivo()).toAbsolutePath().normalize();
-        Path raiz = directorio.toAbsolutePath().normalize();
-        if (!ruta.startsWith(raiz) || !Files.isRegularFile(ruta)) {
+                .filter(DocumentoCaso::isActivo)
+                .orElse(null);
+        if (documento == null) {
+            bitacoraCasoService.registrarDurable(
+                    caso, usuario, TipoEventoCaso.INTENTO_DESCARGA_DENEGADO,
+                    "Intento de descarga con un identificador que no corresponde al caso.", ip);
             throw new ApiException(
                     HttpStatus.NOT_FOUND,
                     "DOCUMENTO_NO_ENCONTRADO",
                     "El documento solicitado no existe en este caso.");
+        }
+        Path ruta = Path.of(documento.getRutaArchivo()).toAbsolutePath().normalize();
+        Path raiz = directorio.toAbsolutePath().normalize();
+        if (!ruta.startsWith(raiz) || !Files.isRegularFile(ruta)) {
+            bitacoraCasoService.registrarDurable(
+                    caso,
+                    usuario,
+                    TipoEventoCaso.DOCUMENTO_FALTANTE,
+                    "Falta el archivo de " + documento.getNombreArchivo() + " en el caso "
+                            + caso.getCodigoSeguimiento() + ".",
+                    ip);
+            notificacionService.avisarDocumentoFaltante(caso, documento.getNombreArchivo());
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND,
+                    "DOCUMENTO_NO_ENCONTRADO",
+                    "El documento no está disponible.");
         }
         bitacoraCasoService.registrar(
                 caso,
@@ -111,11 +173,46 @@ public class DocumentoService {
                 "Descarga de documento " + documento.getNombreArchivo() + " del caso "
                         + caso.getCodigoSeguimiento() + ".",
                 ip);
+        String nombre = documento.getNombreArchivo().replace("\"", "").replace("\r", "").replace("\n", "");
         Resource recurso = new FileSystemResource(ruta);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(documento.getTipoMime()))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + documento.getNombreArchivo() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nombre + "\"")
                 .body(recurso);
+    }
+
+    @Transactional
+    public MensajeDocumento darDeBaja(Long casoId, Long documentoId, Usuario usuario, String justificacion, String ip) {
+        if (usuario.getRol() != Rol.ADMIN) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "PERMISO_DENEGADO",
+                    "Solo el administrador puede dar de baja un documento.");
+        }
+        String motivo = justificacion == null ? "" : justificacion.trim();
+        if (motivo.length() < 10) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VALIDACION",
+                    "Indique la justificación de la baja.");
+        }
+        Caso caso = casoVisible(casoId, usuario);
+        DocumentoCaso documento = documentoCasoRepository.findByIdAndCaso(documentoId, caso)
+                .filter(DocumentoCaso::isActivo)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "DOCUMENTO_NO_ENCONTRADO",
+                        "El documento solicitado no existe en este caso."));
+        documento.darDeBaja(usuario, motivo);
+        documentoCasoRepository.save(documento);
+        bitacoraCasoService.registrar(
+                caso,
+                usuario,
+                TipoEventoCaso.DOCUMENTO_BAJA,
+                "Baja del documento " + documento.getNombreArchivo() + " en " + caso.getCodigoSeguimiento()
+                        + ". Justificación: " + motivo,
+                ip);
+        return new MensajeDocumento("El documento quedó dado de baja. La evidencia almacenada se conserva.");
     }
 
     private CargaDocumentosRespuesta guardarArchivos(
@@ -124,55 +221,46 @@ public class DocumentoService {
             OrigenDocumento origen,
             Usuario usuario,
             String ip,
-            String prefijoBitacora) {
-        if (caso.getEstado() == EstadoCaso.RESUELTO) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "CASO_NO_MODIFICABLE",
-                    "El caso está resuelto y solo puede consultarse.");
-        }
-        if (caso.getEstado() == EstadoCaso.CERRADO || caso.getEstado() == EstadoCaso.ANULADO) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "CASO_NO_HABILITADO",
-                    "El caso no admite documentos en su estado actual.");
-        }
-
+            boolean limitarCantidad,
+            String notaExcepcion) {
         List<ArchivoSubido> subidos = new ArrayList<>();
         List<ArchivoRechazado> rechazados = new ArrayList<>();
-        long existentes = documentoCasoRepository.countByCaso(caso);
         if (archivos == null || archivos.isEmpty()) {
             return new CargaDocumentosRespuesta(subidos, rechazados);
         }
-
+        long existentes = documentoCasoRepository.countActivos(caso);
         for (MultipartFile archivo : archivos) {
             if (archivo == null || archivo.isEmpty()) {
                 continue;
             }
-            String nombre = nombreSeguro(archivo.getOriginalFilename());
+            String nombre = Archivos.nombreSeguro(archivo.getOriginalFilename());
             try {
                 byte[] contenido = archivo.getBytes();
-                String motivo = validar(nombre, contenido, existentes + subidos.size());
+                String motivo = motivoDe(nombre, contenido, existentes + subidos.size(), limitarCantidad);
                 if (motivo != null) {
+                    if (revisionContenido && Archivos.pareceEjecutable(contenido)) {
+                        Archivos.guardarCuarentena(directorio, contenido);
+                        motivo = "El archivo no superó la revisión de contenido.";
+                    }
                     rechazados.add(new ArchivoRechazado(nombre, motivo));
                     continue;
                 }
-                Path destino = persistir(caso.getCodigoSeguimiento(), nombre, contenido);
+                Path destino = Archivos.persistir(directorio, caso.getCodigoSeguimiento(), nombre, contenido);
                 DocumentoCaso documento = documentoCasoRepository.save(new DocumentoCaso(
                         caso,
                         nombre,
                         destino.toString(),
-                        MIME.get(extension(nombre)),
+                        Archivos.mime(nombre),
                         contenido.length,
                         origen,
                         usuario));
                 subidos.add(ArchivoSubido.de(documento));
-                bitacoraCasoService.registrar(
-                        caso,
-                        usuario,
-                        TipoEventoCaso.DOCUMENTO_CARGADO,
-                        prefijoBitacora + nombre + " en " + caso.getCodigoSeguimiento() + ".",
-                        ip);
+                String descripcion = "Carga de documento " + nombre + " (" + contenido.length + " bytes) en "
+                        + caso.getCodigoSeguimiento() + ".";
+                if (notaExcepcion != null) {
+                    descripcion = descripcion + " " + notaExcepcion;
+                }
+                bitacoraCasoService.registrar(caso, usuario, TipoEventoCaso.DOCUMENTO_CARGADO, descripcion, ip);
             } catch (IOException ex) {
                 rechazados.add(new ArchivoRechazado(nombre, "No fue posible almacenar el archivo."));
             }
@@ -180,45 +268,53 @@ public class DocumentoService {
         return new CargaDocumentosRespuesta(subidos, rechazados);
     }
 
-    private String validar(String nombre, byte[] contenido, long total) {
-        if (total >= MAX_ARCHIVOS) {
-            return "Máximo 5 archivos por caso.";
+    private String motivoDe(String nombre, byte[] contenido, long total, boolean limitarCantidad) {
+        int maximo = parametroService.maxArchivos();
+        if (limitarCantidad && total >= maximo) {
+            return "Máximo " + maximo + " archivos por caso.";
         }
-        String ext = extension(nombre);
-        if (!EXTENSIONES.contains(ext)) {
-            return "Formato no permitido. Use PDF, JPG, PNG o DOCX.";
-        }
-        if (contenido.length > MAX_BYTES) {
-            return "El archivo supera el máximo de 5 MB.";
-        }
-        if (!firmaValida(contenido, ext)) {
-            return "El contenido del archivo no coincide con el formato declarado.";
-        }
-        return null;
+        return Archivos.motivoRechazo(nombre, contenido, parametroService.maxBytes(), parametroService.extensiones());
     }
 
-    private boolean firmaValida(byte[] contenido, String ext) {
-        if (contenido.length < 4) {
-            return false;
+    private void exigirEstado(Caso caso, boolean interno, Usuario usuario, String justificacion) {
+        EstadoCaso estado = caso.getEstado();
+        if (estado == EstadoCaso.CERRADO || estado == EstadoCaso.ANULADO) {
+            if (interno && usuario != null && usuario.getRol() == Rol.ADMIN && justificacionValida(justificacion)) {
+                return;
+            }
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_NO_HABILITADO",
+                    "El caso no admite documentos en su estado actual.");
         }
-        return switch (ext) {
-            case "pdf" -> contenido[0] == '%' && contenido[1] == 'P' && contenido[2] == 'D' && contenido[3] == 'F';
-            case "jpg", "jpeg" -> (contenido[0] & 0xFF) == 0xFF && (contenido[1] & 0xFF) == 0xD8;
-            case "png" -> (contenido[0] & 0xFF) == 0x89 && contenido[1] == 'P' && contenido[2] == 'N' && contenido[3] == 'G';
-            case "docx" -> contenido[0] == 'P' && contenido[1] == 'K';
-            default -> false;
-        };
+        if (estado == EstadoCaso.RESUELTO && !interno) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_NO_MODIFICABLE",
+                    "El caso está resuelto y solo puede consultarse.");
+        }
     }
 
-    private Path persistir(String codigo, String nombre, byte[] contenido) throws IOException {
-        Path carpeta = directorio.toAbsolutePath().normalize().resolve(codigo);
-        Files.createDirectories(carpeta);
-        Path destino = carpeta.resolve(UUID.randomUUID() + "-" + nombre).normalize();
-        if (!destino.startsWith(carpeta)) {
-            throw new IOException("Ruta de archivo inválida.");
+    private String excepcion(Caso caso, String justificacion) {
+        if (caso.getEstado() != EstadoCaso.CERRADO && caso.getEstado() != EstadoCaso.ANULADO) {
+            return null;
         }
-        Files.write(destino, contenido);
-        return destino;
+        return "Excepción autorizada: " + justificacion.trim();
+    }
+
+    private boolean justificacionValida(String justificacion) {
+        return justificacion != null && justificacion.trim().length() >= 10;
+    }
+
+    private Caso casoVisible(Long casoId, Usuario usuario) {
+        Caso caso = casoPorId(casoId);
+        if (!casoGestionService.puedeConsultar(usuario, caso)) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "PERMISO_DENEGADO",
+                    "No tiene permisos para consultar los documentos de este caso.");
+        }
+        return caso;
     }
 
     private Caso casoPorCodigo(String codigo) {
@@ -234,16 +330,5 @@ public class DocumentoService {
                 HttpStatus.NOT_FOUND,
                 "CASO_NO_ENCONTRADO",
                 "El caso solicitado no existe."));
-    }
-
-    private String nombreSeguro(String original) {
-        String nombre = original == null ? "archivo" : Path.of(original).getFileName().toString();
-        nombre = nombre.replaceAll("[^a-zA-Z0-9._-]", "_");
-        return nombre.isBlank() ? "archivo" : nombre;
-    }
-
-    private String extension(String nombre) {
-        int punto = nombre.lastIndexOf('.');
-        return punto < 0 ? "" : nombre.substring(punto + 1).toLowerCase(Locale.ROOT);
     }
 }

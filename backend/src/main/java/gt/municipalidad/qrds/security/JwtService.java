@@ -1,6 +1,7 @@
 package gt.municipalidad.qrds.security;
 
 import gt.municipalidad.qrds.entity.Usuario;
+import gt.municipalidad.qrds.service.ParametroService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -15,18 +16,18 @@ import org.springframework.stereotype.Service;
 public class JwtService {
 
     private final SecretKey key;
-    private final long expirationHours;
+    private final ParametroService parametroService;
 
     public JwtService(
             @Value("${qrds.jwt.secret}") String secret,
-            @Value("${qrds.jwt.expiration-hours}") long expirationHours) {
+            ParametroService parametroService) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationHours = expirationHours;
+        this.parametroService = parametroService;
     }
 
     public String generar(Usuario usuario) {
         Instant ahora = Instant.now();
-        Instant expira = ahora.plusSeconds(expirationHours * 3600);
+        Instant expira = ahora.plusSeconds(parametroService.horasSesion() * 3600L);
         return Jwts.builder()
                 .subject(usuario.getEmail())
                 .claim("userId", usuario.getId())

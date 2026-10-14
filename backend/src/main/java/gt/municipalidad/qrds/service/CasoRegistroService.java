@@ -41,6 +41,7 @@ public class CasoRegistroService {
     private final BitacoraCasoService bitacoraCasoService;
     private final NotificacionService notificacionService;
     private final CorreoService correoService;
+    private final ParametroService parametroService;
 
     public CasoRegistroService(
             CasoRepository casoRepository,
@@ -50,7 +51,8 @@ public class CasoRegistroService {
             PlazoService plazoService,
             BitacoraCasoService bitacoraCasoService,
             NotificacionService notificacionService,
-            CorreoService correoService) {
+            CorreoService correoService,
+            ParametroService parametroService) {
         this.casoRepository = casoRepository;
         this.areaRepository = areaRepository;
         this.recaptchaService = recaptchaService;
@@ -59,6 +61,7 @@ public class CasoRegistroService {
         this.bitacoraCasoService = bitacoraCasoService;
         this.notificacionService = notificacionService;
         this.correoService = correoService;
+        this.parametroService = parametroService;
     }
 
     @Transactional
@@ -93,7 +96,7 @@ public class CasoRegistroService {
         caso.setAvancePorcentaje(0);
         caso.setFechaRegistro(ahora);
         caso.setFechaUltimaActualizacion(ahora);
-        caso.setFechaLimiteRespuesta(plazoService.fechaLimite(LocalDate.now(), request.tipoCaso().getDiasHabiles()));
+        caso.setFechaLimiteRespuesta(plazoService.fechaLimite(LocalDate.now(), parametroService.dias(request.tipoCaso())));
         caso.setIpRegistro(ip);
         caso.setTelefono(anonimo ? null : digitos(request.telefono()));
 
@@ -133,7 +136,7 @@ public class CasoRegistroService {
         }
 
         boolean correoEnviado = notificacionService.enviarConfirmacionRegistro(caso);
-        return RegistroCasoRespuesta.de(caso, correoEnviado);
+        return RegistroCasoRespuesta.de(caso, correoEnviado, parametroService.textoPlazo(caso.getTipoCaso()));
     }
 
     private Map<String, String> validar(RegistroCasoRequest request, boolean anonimo) {

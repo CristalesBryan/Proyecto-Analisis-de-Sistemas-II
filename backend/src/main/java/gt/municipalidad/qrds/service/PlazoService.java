@@ -1,12 +1,19 @@
 package gt.municipalidad.qrds.service;
 
 import gt.municipalidad.qrds.dto.CasoDtos.PlazoCaso;
+import gt.municipalidad.qrds.repository.DiaNoLaborableRepository;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PlazoService {
+
+    private final DiaNoLaborableRepository feriados;
+
+    public PlazoService(DiaNoLaborableRepository feriados) {
+        this.feriados = feriados;
+    }
 
     public LocalDate fechaLimite(LocalDate inicio, int diasHabiles) {
         LocalDate fecha = inicio;
@@ -46,6 +53,6 @@ public class PlazoService {
 
     private boolean esHabil(LocalDate fecha) {
         DayOfWeek dia = fecha.getDayOfWeek();
-        return dia != DayOfWeek.SATURDAY && dia != DayOfWeek.SUNDAY;
+        return dia != DayOfWeek.SATURDAY && dia != DayOfWeek.SUNDAY && !feriados.existsById(fecha);
     }
 }

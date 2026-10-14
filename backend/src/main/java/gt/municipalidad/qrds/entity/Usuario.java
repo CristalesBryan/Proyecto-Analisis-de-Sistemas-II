@@ -54,8 +54,15 @@ public class Usuario {
     @Column(name = "bloqueado_hasta")
     private Instant bloqueadoHasta;
 
+    @ColumnDefault("false")
+    @Column(name = "forzar_cambio_password", nullable = false)
+    private boolean forzarCambioPassword = false;
+
     @Column(name = "token_version", nullable = false)
     private int tokenVersion = 0;
+
+    @Column(name = "actualizado_en", nullable = false)
+    private Instant actualizadoEn = Instant.now();
 
     @ColumnDefault("false")
     @Column(name = "acepta_privacidad", nullable = false)
@@ -150,6 +157,31 @@ public class Usuario {
 
     public void setBloqueadoHasta(Instant bloqueadoHasta) {
         this.bloqueadoHasta = bloqueadoHasta;
+    }
+
+    public boolean isForzarCambioPassword() {
+        return forzarCambioPassword;
+    }
+
+    public void setForzarCambioPassword(boolean forzarCambioPassword) {
+        this.forzarCambioPassword = forzarCambioPassword;
+    }
+
+    public Instant getActualizadoEn() {
+        return actualizadoEn;
+    }
+
+    public void setActualizadoEn(Instant actualizadoEn) {
+        this.actualizadoEn = actualizadoEn;
+    }
+
+    public void tocar() {
+        actualizadoEn = Instant.now();
+    }
+
+    public void limpiarBloqueo() {
+        intentosFallidos = 0;
+        bloqueadoHasta = null;
     }
 
     public int getTokenVersion() {

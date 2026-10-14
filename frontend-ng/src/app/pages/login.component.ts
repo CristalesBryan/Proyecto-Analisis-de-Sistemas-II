@@ -43,7 +43,11 @@ export class LoginComponent implements OnInit {
     if (!token || !usuario) return;
     this.api
       .obtenerSesion()
-      .then(() => this.router.navigateByUrl(this.auth.destinoDeRol(usuario.rol)))
+      .then(({ usuario }) => {
+        this.auth.guardarSesion(token, usuario);
+        const destino = usuario.forzarCambioPassword ? '/perfil' : this.auth.destinoDeRol(usuario.rol);
+        return this.router.navigateByUrl(destino);
+      })
       .catch(() => this.auth.limpiarSesion());
   }
 
@@ -72,7 +76,10 @@ export class LoginComponent implements OnInit {
     try {
       const respuesta = await this.api.iniciarSesion(this.email.trim(), this.password);
       this.auth.guardarSesion(respuesta.token, respuesta.usuario);
-      await this.router.navigateByUrl(this.auth.destinoDeRol(respuesta.usuario.rol));
+      const destino = respuesta.usuario.forzarCambioPassword
+        ? '/perfil'
+        : this.auth.destinoDeRol(respuesta.usuario.rol);
+      await this.router.navigateByUrl(destino);
     } catch (error) {
       const apiError = error as ApiError;
       this.errorServidor =

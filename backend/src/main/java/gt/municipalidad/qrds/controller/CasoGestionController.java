@@ -12,6 +12,8 @@ import gt.municipalidad.qrds.dto.CasoDtos.ModificarCasoRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.ObservacionRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.PaginaCasos;
 import gt.municipalidad.qrds.dto.CasoDtos.ProrrogaRequest;
+import gt.municipalidad.qrds.dto.CasoDtos.ReasignacionMasivaRespuesta;
+import gt.municipalidad.qrds.dto.CasoDtos.ReasignarMasivoRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.ReasignarRequest;
 import gt.municipalidad.qrds.security.UsuarioPrincipal;
 import gt.municipalidad.qrds.service.CasoGestionService;
@@ -52,6 +54,9 @@ public class CasoGestionController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) Boolean sinAsignar,
+            @RequestParam(required = false) Boolean vencido,
+            @RequestParam(required = false) Boolean abiertos,
+            @RequestParam(required = false) Boolean soloAsignados,
             @RequestParam(required = false, defaultValue = "fechaRegistro") String orden,
             @RequestParam(required = false, defaultValue = "desc") String direccion,
             @RequestParam(required = false, defaultValue = "1") int page,
@@ -65,6 +70,9 @@ public class CasoGestionController {
                 desde,
                 hasta,
                 sinAsignar,
+                vencido,
+                abiertos,
+                soloAsignados,
                 orden,
                 direccion,
                 page,
@@ -95,6 +103,15 @@ public class CasoGestionController {
             @AuthenticationPrincipal UsuarioPrincipal principal,
             HttpServletRequest http) {
         return casoGestionService.asignar(casoId, request, principal.getUsuario(), HttpRequests.ipCliente(http));
+    }
+
+    @PostMapping("/api/casos/reasignar-masivo")
+    @PreAuthorize("hasAuthority('PERM_CASOS_ASIGNAR')")
+    public ReasignacionMasivaRespuesta reasignarMasivo(
+            @Valid @RequestBody ReasignarMasivoRequest request,
+            @AuthenticationPrincipal UsuarioPrincipal principal,
+            HttpServletRequest http) {
+        return casoGestionService.reasignarMasivo(request, principal.getUsuario(), HttpRequests.ipCliente(http));
     }
 
     @PostMapping("/api/casos/{casoId}/reasignar")

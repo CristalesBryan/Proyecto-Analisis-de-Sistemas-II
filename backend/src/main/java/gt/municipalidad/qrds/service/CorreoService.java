@@ -27,11 +27,13 @@ public class CorreoService {
     private final String apiKey;
     private final String remitente;
     private final RestClient restClient;
+    private final ParametroService parametroService;
 
     @Autowired
     public CorreoService(
             @Value("${resend.api-key}") String apiKey,
-            @Value("${resend.from}") String remitente) {
+            @Value("${resend.from}") String remitente,
+            ParametroService parametroService) {
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException(
                     "Falta la variable de entorno RESEND_API_KEY. Defínala antes de arrancar la aplicación.");
@@ -42,6 +44,7 @@ public class CorreoService {
         }
         this.apiKey = apiKey.trim();
         this.remitente = remitente.trim();
+        this.parametroService = parametroService;
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(TIMEOUT);
         factory.setReadTimeout(TIMEOUT);
@@ -52,6 +55,7 @@ public class CorreoService {
         this.apiKey = "";
         this.remitente = "";
         this.restClient = null;
+        this.parametroService = null;
     }
 
     @Async
@@ -70,20 +74,27 @@ public class CorreoService {
             return;
         }
         String destinatario = para.trim();
-        try {
-            restClient.post()
-                    .uri(URL)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(new SolicitudResend(remitente, List.of(destinatario), asunto, texto))
-                    .retrieve()
-                    .toBodilessEntity();
-            log.info("Correo enviado a {}", destinatario);
-        } catch (RestClientResponseException ex) {
-            throw new CorreoNoEnviadoException(ex.getStatusCode().value());
-        } catch (RestClientException ex) {
-            throw new CorreoNoEnviadoException(null);
+        String desde = parametroService == null ? remitente : parametroService.remitenteCorreo(remitente);
+        int reintentos = parametroService == null ? 0 : parametroService.reintentosCorreo();
+        CorreoNoEnviadoException ultimo = null;
+        for (int intento = 0; intento <= reintentos; intento++) {
+            try {
+                restClient.post()
+                        .uri(URL)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(new SolicitudResend(desde, List.of(destinatario), asunto, texto))
+                        .retrieve()
+                        .toBodilessEntity();
+                log.info("Correo enviado a {}", destinatario);
+                return;
+            } catch (RestClientResponseException ex) {
+                ultimo = new CorreoNoEnviadoException(ex.getStatusCode().value());
+            } catch (RestClientException ex) {
+                ultimo = new CorreoNoEnviadoException(null);
+            }
         }
+        throw ultimo;
     }
 
     private static String destinatario(String para) {

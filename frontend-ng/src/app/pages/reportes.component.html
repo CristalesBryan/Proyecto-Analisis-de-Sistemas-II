@@ -1,0 +1,193 @@
+<app-internal-layout>
+  <div class="mb-4">
+    <p class="small text-secondary mb-1">Gestión interna · {{ rol }}</p>
+    <h1 class="h2 mb-1">Generar reportes</h1>
+    <p class="text-secondary mb-0">
+      Consulta, visualiza y descarga información de los casos sin modificarlos.
+      @if (rol === 'SUPERVISOR') {
+        El alcance queda limitado a {{ areaUsuario || 'su área' }}.
+      }
+    </p>
+  </div>
+
+  <div class="row g-3 mb-4">
+    @for (item of catalogo; track item.codigo) {
+      <div class="col-md-6 col-xl-3">
+        <button type="button" class="panel p-3 h-100 w-100 text-start border"
+          [class.border-primary]="tipo === item.codigo"
+          (click)="seleccionar(item.codigo)">
+          <span class="small text-secondary">{{ item.codigo }}</span>
+          <strong class="d-block">{{ item.nombre }}</strong>
+          <span class="small text-secondary">{{ item.descripcion }}</span>
+        </button>
+      </div>
+    }
+  </div>
+
+  <form class="panel p-3 mb-4" (ngSubmit)="generar()">
+    <div class="row g-2">
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="desde">Fecha desde</label>
+        <input id="desde" type="date" class="form-control" name="fechaDesde" [(ngModel)]="fechaDesde" required>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="hasta">Fecha hasta</label>
+        <input id="hasta" type="date" class="form-control" name="fechaHasta" [(ngModel)]="fechaHasta" required>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="tipoCaso">Tipo de caso</label>
+        <select id="tipoCaso" class="form-select" name="tipoCaso" [(ngModel)]="tipoCaso">
+          <option value="">Todos</option>
+          @for (tipoCaso of tipos; track tipoCaso.codigo) {
+            <option [value]="tipoCaso.codigo">{{ tipoCaso.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="estado">Estado</label>
+        <select id="estado" class="form-select" name="estado" [(ngModel)]="estado" [disabled]="tipo === 'RPT-08'">
+          <option value="">Todos</option>
+          @for (estado of estados; track estado) {
+            <option [value]="estado">{{ etiquetaEstado(estado) }}</option>
+          }
+        </select>
+      </div>
+      @if (rol === 'ADMIN') {
+        <div class="col-sm-6 col-lg-3">
+          <label class="form-label small mb-1" for="area">Área</label>
+          <select id="area" class="form-select" name="area" [(ngModel)]="area">
+            <option value="">Todas las áreas</option>
+            @for (area of areas; track area.codigo) {
+              <option [value]="area.codigo">{{ area.nombre }}</option>
+            }
+          </select>
+        </div>
+      }
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="agente">Agente</label>
+        <select id="agente" class="form-select" name="agenteId" [(ngModel)]="agenteId">
+          <option value="">Todos</option>
+          @for (agente of agentesVisibles; track agente.id) {
+            <option [value]="agente.id">{{ agente.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label small mb-1" for="formato">Formato</label>
+        <select id="formato" class="form-select" name="formato" [(ngModel)]="formato">
+          <option value="PANTALLA">Ver en pantalla</option>
+          <option value="PDF">PDF</option>
+          <option value="XLSX">Excel</option>
+        </select>
+      </div>
+      <div class="col-sm-6 col-lg-3 d-flex align-items-end">
+        <label class="form-check mb-2">
+          <input type="checkbox" class="form-check-input" name="incluirAnulados" [(ngModel)]="incluirAnulados"
+            [disabled]="tipo === 'RPT-08'">
+          <span class="form-check-label">Incluir anulados</span>
+        </label>
+      </div>
+    </div>
+    <div class="d-flex gap-2 mt-3">
+      <button type="submit" class="btn btn-primary" [disabled]="cargando">
+        {{ cargando ? 'Generando…' : 'Generar' }}
+      </button>
+      <button type="button" class="btn btn-outline-civic" (click)="limpiar()" [disabled]="cargando">Limpiar</button>
+    </div>
+  </form>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+  }
+
+  @if (resultado) {
+    <div class="panel p-3 mb-4">
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+        <div>
+          <h2 class="h5 mb-1">{{ resultado.tipo }} · {{ resultado.nombre }}</h2>
+          <p class="mb-0" [class.text-secondary]="resultado.cantidadFilas > 0">{{ resultado.mensaje }}</p>
+          <p class="small text-secondary mb-0">{{ resultado.cantidadFilas }} casos · {{ resultado.estado }}</p>
+        </div>
+        <div class="d-flex gap-2">
+          @if (resultado.descargable) {
+            <button type="button" class="btn btn-outline-civic btn-sm" (click)="descargar(resultado)">
+              Descargar {{ resultado.formato === 'PDF' ? 'PDF' : 'Excel' }}
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              @for (columna of resultado.columnas; track columna) {
+                <th>{{ columna }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (resultado.estado === 'PENDIENTE' || resultado.estado === 'PROCESANDO') {
+              <tr><td [attr.colspan]="resultado.columnas.length || 1" class="text-center text-secondary py-4">El reporte está en cola…</td></tr>
+            } @else if (filasPagina.length === 0) {
+              <tr><td [attr.colspan]="resultado.columnas.length || 1" class="text-center text-secondary py-4">No hay casos con los criterios seleccionados.</td></tr>
+            } @else {
+              @for (fila of filasPagina; track $index) {
+                <tr>
+                  @for (valor of fila; track $index) {
+                    <td>{{ valor }}</td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      @if ((resultado.filas.length || 0) > tamano) {
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <button type="button" class="btn btn-outline-civic btn-sm" (click)="anterior()" [disabled]="pagina === 0">Anterior</button>
+          <span class="small text-secondary">Página {{ pagina + 1 }} de {{ totalPaginas }}</span>
+          <button type="button" class="btn btn-outline-civic btn-sm" (click)="siguiente()" [disabled]="pagina + 1 >= totalPaginas">Siguiente</button>
+        </div>
+      }
+    </div>
+  }
+
+  <div class="panel p-3">
+    <h2 class="h5">Mis reportes</h2>
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Reporte</th>
+            <th>Formato</th>
+            <th>Estado</th>
+            <th>Casos</th>
+            <th>Fecha</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (historial.length === 0) {
+            <tr><td colspan="6" class="text-center text-secondary py-4">Todavía no hay reportes generados.</td></tr>
+          } @else {
+            @for (item of historial; track item.id) {
+              <tr>
+                <td>{{ item.tipo }} · {{ item.nombre }}</td>
+                <td>{{ item.formato === 'PANTALLA' ? 'Pantalla' : item.formato }}</td>
+                <td>{{ item.estado }}</td>
+                <td>{{ item.cantidadFilas ?? '—' }}</td>
+                <td>{{ formatFechaHora(item.creadoEn) }}</td>
+                <td class="text-end">
+                  @if (item.descargable) {
+                    <button type="button" class="btn btn-outline-civic btn-sm" (click)="descargar(item)">Descargar</button>
+                  }
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</app-internal-layout>

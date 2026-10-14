@@ -2,6 +2,7 @@ package gt.municipalidad.qrds.dto;
 
 import gt.municipalidad.qrds.dto.DocumentoDtos.DocumentoResumen;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
@@ -86,7 +87,8 @@ public final class CasoDtos {
             int totalPages) {
     }
 
-    public record AgenteOpcion(Long id, String nombre, String email, String areaDependencia, String areaNombre) {
+    public record AgenteOpcion(
+            Long id, String nombre, String email, String areaDependencia, String areaNombre, int casosAbiertos) {
     }
 
     public record AccionCasoRespuesta(String mensaje, CasoDetalle caso) {
@@ -98,8 +100,27 @@ public final class CasoDtos {
     public record ReasignarRequest(
             @NotNull(message = "Seleccione un agente.") Long agenteId,
             @NotBlank(message = "Indique el motivo de la reasignación.")
-            @Size(min = 10, message = "El motivo debe tener al menos 10 caracteres.")
-            String motivo) {
+            @Size(min = 50, max = 1000, message = "La justificación debe tener entre 50 y 1000 caracteres.")
+            String motivo,
+            Boolean notificar,
+            Boolean actualizarArea) {
+    }
+
+    public record ReasignarMasivoRequest(
+            @NotEmpty(message = "Seleccione al menos un caso.")
+            @Size(max = 50, message = "La reasignación admite como máximo 50 casos.")
+            List<Long> ids,
+            @NotNull(message = "Seleccione un agente.") Long agenteId,
+            @NotBlank(message = "Indique el motivo de la reasignación.")
+            @Size(min = 50, max = 1000, message = "La justificación debe tener entre 50 y 1000 caracteres.")
+            String motivo,
+            Boolean notificar) {
+    }
+
+    public record ResultadoReasignacion(Long casoId, String codigo, boolean aplicado, String mensaje) {
+    }
+
+    public record ReasignacionMasivaRespuesta(List<ResultadoReasignacion> resultados) {
     }
 
     public record CambioEstadoRequest(

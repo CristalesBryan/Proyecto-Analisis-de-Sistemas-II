@@ -1,0 +1,199 @@
+<app-internal-layout>
+  <div class="mb-4 d-flex flex-wrap justify-content-between gap-3">
+    <div>
+      <p class="small text-secondary mb-1">Administración · {{ rolSesion }}</p>
+      <h1 class="h2 mb-1">Usuarios y permisos</h1>
+      <p class="text-secondary mb-0">
+        @if (esSupervisor) {
+          Puede consultar y dar de alta agentes de su área.
+        } @else {
+          Cree y mantenga las cuentas internas. La contraseña no se muestra después de guardarla.
+        }
+      </p>
+    </div>
+    @if (vista === 'lista') {
+      <button type="button" class="btn btn-primary align-self-start" (click)="nuevo()">Nuevo usuario</button>
+    } @else {
+      <button type="button" class="btn btn-outline-civic align-self-start" (click)="volver()">Volver al listado</button>
+    }
+  </div>
+
+  @if (error) {
+    <p class="alert alert-danger">{{ error }}</p>
+  }
+  @if (mensaje) {
+    <p class="alert alert-success">{{ mensaje }}</p>
+  }
+  @if (temporal) {
+    <p class="alert alert-warning">
+      Contraseña temporal: <strong>{{ temporal }}</strong>. Comuníquela al usuario. No se volverá a mostrar.
+    </p>
+  }
+
+  @if (vista === 'lista') {
+    <form class="panel p-3 mb-3" (ngSubmit)="buscar()">
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label small mb-1" for="buscar-usuario">Buscar</label>
+          <input id="buscar-usuario" class="form-control" name="consulta" [(ngModel)]="consulta" placeholder="Nombre o correo">
+        </div>
+        @if (!esSupervisor) {
+          <div class="col-md-2">
+            <label class="form-label small mb-1" for="filtro-rol">Rol</label>
+            <select id="filtro-rol" class="form-select" name="rol" [(ngModel)]="rol">
+              <option value="">Todos</option>
+              @for (item of roles; track item.valor) {
+                <option [value]="item.valor">{{ item.etiqueta }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-1" for="filtro-area">Área</label>
+            <select id="filtro-area" class="form-select" name="area" [(ngModel)]="area">
+              <option value="">Todas</option>
+              @for (item of areas; track item.id) {
+                <option [value]="item.codigo">{{ item.nombre }}</option>
+              }
+            </select>
+          </div>
+        }
+        <div class="col-md-2">
+          <label class="form-label small mb-1" for="filtro-activo">Estado</label>
+          <select id="filtro-activo" class="form-select" name="activo" [(ngModel)]="activo">
+            <option value="">Todos</option>
+            <option value="true">Activos</option>
+            <option value="false">Inactivos</option>
+          </select>
+        </div>
+        <div class="col-md-12 d-flex gap-2">
+          <button type="submit" class="btn btn-primary" [disabled]="cargando">Buscar</button>
+          <button type="button" class="btn btn-outline-civic" (click)="limpiarFiltros()">Limpiar</button>
+        </div>
+      </div>
+    </form>
+
+    <div class="panel p-3">
+      <p class="small text-secondary">{{ total }} usuario{{ total === 1 ? '' : 's' }}</p>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Área</th>
+              <th>Estado</th>
+              <th>Actualización</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (usuario of usuarios; track usuario.id) {
+              <tr>
+                <td>{{ usuario.nombre }}</td>
+                <td>{{ usuario.email }}</td>
+                <td>{{ etiquetaRol(usuario.rol) }}</td>
+                <td>{{ usuario.areaNombre || '—' }}</td>
+                <td>{{ usuario.activo ? 'Activo' : 'Inactivo' }}</td>
+                <td>{{ formatFechaHora(usuario.actualizadoEn) }}</td>
+                <td class="text-nowrap">
+                  <button type="button" class="btn btn-link btn-sm" (click)="ver(usuario)">Ver</button>
+                  <button type="button" class="btn btn-link btn-sm" (click)="editar(usuario)">Editar</button>
+                  @if (!esSupervisor) {
+                    <button type="button" class="btn btn-link btn-sm" (click)="pedirReset(usuario)">Restablecer</button>
+                  }
+                  <button type="button" class="btn btn-link btn-sm" (click)="pedirEstado(usuario, !usuario.activo)">
+                    {{ usuario.activo ? 'Desactivar' : 'Reactivar' }}
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="text-secondary">No hay usuarios con los criterios seleccionados.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (paginas > 1) {
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="pagina === 0" (click)="cargar(pagina - 1)">Anterior</button>
+          <span class="small text-secondary">Página {{ pagina + 1 }} de {{ paginas }}</span>
+          <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="pagina + 1 >= paginas" (click)="cargar(pagina + 1)">Siguiente</button>
+        </div>
+      }
+    </div>
+  } @else {
+    <form class="panel p-4" style="max-width: 40rem;" (ngSubmit)="guardar()">
+      <h2 class="h4">{{ modo === 'alta' ? 'Nuevo usuario' : modo === 'ver' ? 'Detalle del usuario' : 'Editar usuario' }}</h2>
+      <div class="mb-3">
+        <label class="form-label" for="nombre-usuario">Nombre completo</label>
+        <input id="nombre-usuario" class="form-control" name="nombre" [(ngModel)]="nombre" [disabled]="modo === 'ver'" required>
+        @if (errores['nombre']) { <p class="field-error">{{ errores['nombre'] }}</p> }
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="correo-usuario">Correo institucional</label>
+        <input id="correo-usuario" class="form-control" name="email" [(ngModel)]="email" [disabled]="modo === 'ver'" required>
+        @if (errores['email']) { <p class="field-error">{{ errores['email'] }}</p> }
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="rol-usuario">Rol</label>
+        <select id="rol-usuario" class="form-select" name="rolFormulario" [(ngModel)]="rolFormulario" [disabled]="modo === 'ver' || esSupervisor">
+          @for (item of roles; track item.valor) {
+            <option [value]="item.valor">{{ item.etiqueta }}</option>
+          }
+        </select>
+        @if (errores['rol']) { <p class="field-error">{{ errores['rol'] }}</p> }
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="area-usuario">Área</label>
+        <select id="area-usuario" class="form-select" name="areaId" [(ngModel)]="areaId" [disabled]="modo === 'ver' || esSupervisor">
+          @if (!areaObligatoria) {
+            <option value="">Sin área</option>
+          } @else {
+            <option value="">Seleccione un área</option>
+          }
+          @for (item of areas; track item.id) {
+            <option [value]="item.id">{{ item.nombre }}</option>
+          }
+        </select>
+        @if (errores['areaId']) { <p class="field-error">{{ errores['areaId'] }}</p> }
+      </div>
+      <div class="form-check mb-3">
+        <input id="activo-usuario" class="form-check-input" type="checkbox" name="activoFormulario" [(ngModel)]="activoFormulario" [disabled]="modo === 'ver'">
+        <label class="form-check-label" for="activo-usuario">Usuario activo</label>
+      </div>
+      @if (modo === 'alta') {
+        <div class="form-check mb-3">
+          <input id="generar-clave" class="form-check-input" type="checkbox" name="generarPassword" [(ngModel)]="generarPassword">
+          <label class="form-check-label" for="generar-clave">Generar contraseña temporal</label>
+        </div>
+        @if (!generarPassword) {
+          <div class="mb-3">
+            <label class="form-label" for="clave-usuario">Contraseña temporal</label>
+            <input id="clave-usuario" class="form-control" type="password" name="password" [(ngModel)]="password" autocomplete="new-password">
+            @if (errores['password']) { <p class="field-error">{{ errores['password'] }}</p> }
+          </div>
+        }
+      } @else if (modo === 'edicion') {
+        <p class="small text-secondary">La contraseña no se muestra. Use Restablecer desde el listado.</p>
+      }
+      @if (modo !== 'ver') {
+        <button type="submit" class="btn btn-primary" [disabled]="cargando">Guardar</button>
+      }
+    </form>
+  }
+
+  @if (confirmacion) {
+    <div class="overlay">
+      <div class="panel p-4" style="max-width: 28rem;" role="dialog" aria-modal="true">
+        <h2 class="h4">{{ confirmacion.titulo }}</h2>
+        <p>{{ confirmacion.texto }}</p>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" (click)="confirmar()">Confirmar</button>
+          <button type="button" class="btn btn-outline-civic" (click)="cancelarConfirmacion()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  }
+</app-internal-layout>

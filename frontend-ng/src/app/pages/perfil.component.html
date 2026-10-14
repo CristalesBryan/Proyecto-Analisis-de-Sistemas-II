@@ -1,0 +1,45 @@
+@if (ciudadano) {
+  <main class="page-pad">
+    <header class="topbar d-flex align-items-center justify-content-between mx-auto" style="max-width: 32rem;">
+      <a routerLink="/" class="brand"><span class="brand-mark">QRDS</span></a>
+      @if (!obligatorio) {
+        <a routerLink="/ciudadano" class="link-secondary text-decoration-none small">Volver a mi cuenta</a>
+      }
+    </header>
+    <div class="mx-auto mt-4" style="max-width: 32rem;">
+      <ng-container *ngTemplateOutlet="formulario" />
+    </div>
+  </main>
+} @else {
+  <app-internal-layout>
+    <ng-container *ngTemplateOutlet="formulario" />
+  </app-internal-layout>
+}
+
+<ng-template #formulario>
+  <form class="panel p-4" style="max-width: 32rem;" (ngSubmit)="guardar()">
+    <p class="small text-secondary mb-1">{{ usuario?.email }}</p>
+    <h1 class="h2">Cambiar contraseña</h1>
+    @if (obligatorio) {
+      <p class="text-secondary">Debe definir una contraseña nueva antes de continuar.</p>
+    }
+    @if (error) { <p class="alert alert-danger">{{ error }}</p> }
+    @if (mensaje) { <p class="alert alert-success">{{ mensaje }}</p> }
+    <div class="mb-3">
+      <label class="form-label" for="clave-actual">Contraseña actual</label>
+      <input id="clave-actual" class="form-control" type="password" name="actual" [(ngModel)]="actual" autocomplete="current-password">
+      @if (errores['actual']) { <p class="field-error">{{ errores['actual'] }}</p> }
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="clave-nueva">Nueva contraseña</label>
+      <input id="clave-nueva" class="form-control" type="password" name="nueva" [(ngModel)]="nueva" autocomplete="new-password">
+      @if (errores['nueva']) { <p class="field-error">{{ errores['nueva'] }}</p> }
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="clave-confirma">Confirmación</label>
+      <input id="clave-confirma" class="form-control" type="password" name="confirmacion" [(ngModel)]="confirmacion" autocomplete="new-password">
+      @if (errores['confirmacion']) { <p class="field-error">{{ errores['confirmacion'] }}</p> }
+    </div>
+    <button type="submit" class="btn btn-primary" [disabled]="cargando">Guardar contraseña</button>
+  </form>
+</ng-template>

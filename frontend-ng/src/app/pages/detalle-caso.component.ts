@@ -7,7 +7,7 @@ import { ApiService } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { etiquetaEstado } from '../core/etiquetas';
 import { formatFecha, formatFechaHora } from '../core/fechas';
-import { AgenteOpcion, ApiError, AreaDependencia, CasoDetalle } from '../core/models';
+import { AgenteOpcion, ApiError, AreaDependencia, CasoDetalle, EventoHistorial, VistaCiudadano } from '../core/models';
 import { InternalLayoutComponent } from '../shared/internal-layout.component';
 import { SeguimientoComponent } from '../shared/seguimiento.component';
 
@@ -38,6 +38,8 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
   exito = '';
   agenteId = '';
   motivo = '';
+  notificarReasignacion = true;
+  actualizarAreaCaso = false;
   nuevoEstado = '';
   observacionEstado = '';
   nota = '';
@@ -49,7 +51,12 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
   confirmar: Confirmacion | null = null;
   enviando = false;
   subiendoDoc = false;
+  arrastrando = false;
   avisoDocs = '';
+  justificacionCarga = '';
+  justificacionBaja = '';
+  documentoBaja: number | null = null;
+  colaDocs: { nombre: string; estado: 'cargando' | 'listo' | 'error'; motivo: string }[] = [];
   editando = false;
   nombreEdit = '';
   emailEdit = '';
@@ -61,6 +68,23 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
   motivoEdit = '';
   pestana: Pestana = 'resumen';
   casoId = NaN;
+  readonly filtrosHistorial = [
+    { id: '', label: 'Todos' },
+    { id: 'ESTADOS', label: 'Estados' },
+    { id: 'SEGUIMIENTOS', label: 'Seguimientos' },
+    { id: 'DOCUMENTOS', label: 'Documentos' },
+    { id: 'ASIGNACIONES', label: 'Asignaciones' },
+    { id: 'RESOLUCION', label: 'Resolución' },
+  ];
+  filtroHistorial = '';
+  buscaHistorial = '';
+  eventosHistorial: EventoHistorial[] = [];
+  totalHistorial = 0;
+  paginaHistorial = 0;
+  avisoHistorial = '';
+  cargandoHistorial = false;
+  eventoAbierto: number | null = null;
+  vistaCiudadano: VistaCiudadano | null = null;
   private subs = new Subscription();
 
   constructor(
@@ -76,6 +100,28 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
 
   get puedeAsignar() {
     return this.usuario?.rol === 'ADMIN' || this.usuario?.rol === 'SUPERVISOR';
+  }
+
+  get puedeReasignar() {
+    return (
+      this.puedeAsignar &&
+      !!this.caso?.agenteAsignadoId &&
+      this.caso.estado !== 'CERRADO' &&
+      this.caso.estado !== 'ANULADO'
+    );
+  }
+
+  get agentesParaReasignar() {
+    return this.agentes.filter((agente) => agente.id !== this.caso?.agenteAsignadoId);
+  }
+
+  get agenteDestino() {
+    return this.agentes.find((agente) => String(agente.id) === this.agenteId);
+  }
+
+  get reasignacionLista() {
+    const largo = this.motivo.trim().length;
+    return !!this.agenteDestino && largo >= 50 && largo <= 1000;
   }
 
   get puedeAnular() {
@@ -94,8 +140,24 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
     return this.usuario ? this.auth.destinosPorRol[this.usuario.rol] : '/';
   }
 
+  get rutaBitacora() {
+    return this.usuario?.rol === 'ADMIN' ? '/admin/bitacoras' : '/supervisor/bitacoras';
+  }
+
   get finalizado() {
     return this.caso?.estado === 'RESUELTO' || this.caso?.estado === 'CERRADO' || this.caso?.estado === 'ANULADO';
+  }
+
+  get puedeAdjuntar() {
+    if (!this.caso) return false;
+    if (this.caso.estado === 'CERRADO' || this.caso.estado === 'ANULADO') {
+      return this.usuario?.rol === 'ADMIN';
+    }
+    return true;
+  }
+
+  get exigeJustificacionCarga() {
+    return this.caso?.estado === 'CERRADO' || this.caso?.estado === 'ANULADO';
   }
 
   get abiertoSeguimiento() {
@@ -117,7 +179,11 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
     if (!this.caso || !this.confirmar) return '';
     const codigo = this.caso.codigoSeguimiento;
     if (this.confirmar === 'asignar') return `Asignar ${codigo} y cambiar RECIBIDO → EN_REVISION.`;
-    if (this.confirmar === 'reasignar') return `Reasignar ${codigo} a otro agente. El estado no cambia.`;
+    if (this.confirmar === 'reasignar') {
+      const extracto = this.motivo.trim().slice(0, 140);
+      const destino = this.agenteDestino?.nombre || 'el agente seleccionado';
+      return `Reasignar ${codigo} de ${this.caso.agenteNombre} a ${destino}. El estado no cambia. Justificación: ${extracto}`;
+    }
     if (this.confirmar === 'estado') {
       return `${codigo}: ${etiquetaEstado(this.caso.estado)} → ${etiquetaEstado(this.nuevoEstado)}.`;
     }
@@ -151,6 +217,10 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
 
   valor(event: Event) {
     return (event.target as HTMLInputElement).value;
+  }
+
+  marcado(event: Event) {
+    return (event.target as HTMLInputElement).checked;
   }
 
   get prorrogaLista() {
@@ -190,6 +260,65 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
     this.pestana = siguiente;
     const destino = siguiente === 'seguimiento' ? `/casos/${this.casoId}/seguimiento` : `/casos/${this.casoId}`;
     if (this.router.url !== destino) void this.router.navigateByUrl(destino);
+    if (siguiente === 'historial') void this.cargarHistorial(0);
+  }
+
+  async cargarHistorial(pagina = 0) {
+    if (!Number.isFinite(this.casoId)) return;
+    this.cargandoHistorial = true;
+    this.avisoHistorial = '';
+    this.paginaHistorial = pagina;
+    try {
+      const resultado = await this.api.consultarHistorial(
+        this.casoId,
+        this.filtroHistorial,
+        this.buscaHistorial,
+        pagina,
+      );
+      this.eventosHistorial = resultado.eventos;
+      this.totalHistorial = resultado.total;
+      this.avisoHistorial = resultado.aviso || '';
+      this.eventoAbierto = null;
+    } catch (error) {
+      this.eventosHistorial = [];
+      this.totalHistorial = 0;
+      this.error = error instanceof Error ? error.message : 'No fue posible consultar el historial.';
+    } finally {
+      this.cargandoHistorial = false;
+    }
+  }
+
+  elegirFiltro(categoria: string) {
+    this.filtroHistorial = categoria;
+    void this.cargarHistorial(0);
+  }
+
+  abrirEvento(id: number) {
+    this.eventoAbierto = this.eventoAbierto === id ? null : id;
+  }
+
+  async exportarHistorial() {
+    this.error = '';
+    try {
+      await this.api.exportarHistorial(this.casoId, this.filtroHistorial, this.buscaHistorial);
+      this.exito = 'El historial se exportó para uso interno.';
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : 'No fue posible exportar el historial.';
+    }
+  }
+
+  async verVistaCiudadano() {
+    this.error = '';
+    if (this.vistaCiudadano) {
+      this.vistaCiudadano = null;
+      return;
+    }
+    try {
+      this.vistaCiudadano = await this.api.vistaCiudadano(this.casoId);
+    } catch (error) {
+      this.vistaCiudadano = null;
+      this.error = error instanceof Error ? error.message : 'No fue posible abrir la vista ciudadana.';
+    }
   }
 
   actualizarCaso(caso: CasoDetalle) {
@@ -218,9 +347,10 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
       this.motivoEdit = '';
       this.sincronizarNuevoEstado();
       if (this.puedeAsignar) {
-        const lista = await this.api.listarAgentes(detalle.area);
+        const lista = await this.api.listarAgentes(this.usuario?.rol === 'ADMIN' ? undefined : detalle.area);
         this.agentes = lista;
-        this.agenteId = this.agenteId || String(lista[0]?.id || '');
+        const disponibles = lista.filter((agente) => agente.id !== detalle.agenteAsignadoId);
+        this.agenteId = String(disponibles[0]?.id || lista[0]?.id || '');
       }
     } catch (err) {
       const apiError = err as ApiError;
@@ -242,7 +372,13 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
       let respuesta;
       if (this.confirmar === 'asignar') respuesta = await this.api.asignarCaso(this.caso.id, Number(this.agenteId));
       else if (this.confirmar === 'reasignar') {
-        respuesta = await this.api.reasignarCaso(this.caso.id, Number(this.agenteId), this.motivo);
+        respuesta = await this.api.reasignarCaso(
+          this.caso.id,
+          Number(this.agenteId),
+          this.motivo,
+          this.notificarReasignacion,
+          this.actualizarAreaCaso,
+        );
       } else if (this.confirmar === 'estado') {
         respuesta = await this.api.cambiarEstadoCaso(this.caso.id, this.nuevoEstado, this.observacionEstado);
       } else if (this.confirmar === 'prorroga') {
@@ -257,11 +393,23 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
       } else {
         respuesta = await this.api.anularCaso(this.caso.id, this.justificacion);
       }
+      const accion = this.confirmar;
       this.caso = respuesta.caso;
       this.sincronizarNuevoEstado();
       this.exito = respuesta.mensaje;
       this.confirmar = null;
       this.motivo = '';
+      this.actualizarAreaCaso = false;
+      if ((accion === 'asignar' || accion === 'reasignar') && this.puedeAsignar && this.caso) {
+        this.agentes = await this.api.listarAgentes(this.usuario?.rol === 'ADMIN' ? undefined : this.caso.area);
+      }
+      if (this.puedeAsignar && this.caso) {
+        const disponibles = this.agentes.filter((agente) => agente.id !== this.caso?.agenteAsignadoId);
+        this.agenteId = String(disponibles[0]?.id || '');
+      }
+      if (this.pestana === 'historial') {
+        await this.cargarHistorial(0);
+      }
       this.observacionEstado = '';
       this.justificacion = '';
     } catch (err) {
@@ -320,30 +468,112 @@ export class DetalleCasoComponent implements OnInit, OnDestroy {
     }
   }
 
+  prepararSoltar(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = true;
+  }
+
+  salirSoltar(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = false;
+  }
+
+  soltarDocumentos(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = false;
+    const lista = event.dataTransfer?.files;
+    if (lista) void this.cargarLista(Array.from(lista));
+  }
+
   async subirDocumentos(event: Event) {
     const input = event.target as HTMLInputElement;
-    const lista = input.files;
+    const lista = input.files ? Array.from(input.files) : [];
     input.value = '';
-    if (!this.caso || !lista || lista.length === 0 || this.finalizado) return;
+    if (lista.length === 0) return;
+    await this.cargarLista(lista);
+  }
+
+  private async cargarLista(archivos: File[]) {
+    if (!this.caso || archivos.length === 0 || !this.puedeAdjuntar) return;
+    if (this.exigeJustificacionCarga && this.justificacionCarga.trim().length < 10) {
+      this.avisoDocs = 'Indique una justificación de al menos 10 caracteres para autorizar la carga.';
+      return;
+    }
     this.subiendoDoc = true;
     this.avisoDocs = '';
     this.error = '';
+    this.exito = '';
+    this.colaDocs = archivos.map((archivo) => ({ nombre: archivo.name, estado: 'cargando', motivo: '' }));
+    let cargados = 0;
     try {
-      const respuesta = await this.api.adjuntarDocumentosInterno(this.caso.id, Array.from(lista));
+      for (let i = 0; i < archivos.length; i += 1) {
+        try {
+          const respuesta = await this.api.adjuntarDocumentosInterno(
+            this.caso.id,
+            [archivos[i]],
+            this.exigeJustificacionCarga ? this.justificacionCarga.trim() : undefined,
+          );
+          if (respuesta.rechazados.length > 0) {
+            this.colaDocs[i] = {
+              nombre: archivos[i].name,
+              estado: 'error',
+              motivo: respuesta.rechazados[0].motivo,
+            };
+          } else {
+            this.colaDocs[i] = { nombre: archivos[i].name, estado: 'listo', motivo: '' };
+            cargados += 1;
+          }
+        } catch (err) {
+          this.colaDocs[i] = {
+            nombre: archivos[i].name,
+            estado: 'error',
+            motivo: (err as ApiError).message || 'No fue posible almacenar el archivo.',
+          };
+        }
+      }
       const documentos = await this.api.listarDocumentosCaso(this.casoId);
       this.caso = { ...this.caso, documentos };
-      if (respuesta.rechazados.length > 0) {
-        this.avisoDocs = `Algunos archivos no se adjuntaron: ${respuesta.rechazados
-          .map((item) => `${item.nombre} (${item.motivo})`)
-          .join(', ')}.`;
-      } else if (respuesta.archivosSubidos.length > 0) {
+      if (cargados > 0) {
         this.exito = 'Documento cargado y asociado al caso.';
+        this.justificacionCarga = '';
       }
-    } catch (err) {
-      this.error = (err as ApiError).message || 'No fue posible almacenar el documento.';
     } finally {
       this.subiendoDoc = false;
     }
+  }
+
+  abrirBaja(docId: number) {
+    this.documentoBaja = this.documentoBaja === docId ? null : docId;
+    this.justificacionBaja = '';
+  }
+
+  async confirmarBaja(docId: number) {
+    if (!this.caso || this.justificacionBaja.trim().length < 10) return;
+    this.error = '';
+    try {
+      const respuesta = await this.api.darBajaDocumento(this.caso.id, docId, this.justificacionBaja.trim());
+      const documentos = await this.api.listarDocumentosCaso(this.casoId);
+      this.caso = { ...this.caso, documentos };
+      this.exito = respuesta.mensaje;
+      this.documentoBaja = null;
+      this.justificacionBaja = '';
+    } catch (err) {
+      this.error = (err as ApiError).message;
+    }
+  }
+
+  formatoTamano(bytes: number) {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  etiquetaTipo(mime: string, nombre: string) {
+    if (mime.includes('pdf') || nombre.toLowerCase().endsWith('.pdf')) return 'PDF';
+    if (mime.includes('png') || nombre.toLowerCase().endsWith('.png')) return 'PNG';
+    if (mime.includes('word') || nombre.toLowerCase().endsWith('.docx')) return 'DOCX';
+    if (mime.includes('jpeg') || /\.jpe?g$/i.test(nombre)) return 'JPG';
+    return mime;
   }
 
   async descargar(docId: number, nombre: string) {

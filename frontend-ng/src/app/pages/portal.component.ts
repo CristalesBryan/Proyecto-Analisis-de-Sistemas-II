@@ -40,7 +40,8 @@ export class PortalComponent implements OnInit, OnDestroy {
     'Recibe la resolución y el cierre del caso por los canales configurados.',
   ];
 
-  readonly contactos = [
+  nombreInstitucion = 'Municipalidad';
+  contactos = [
     { label: 'Dirección', value: 'Palacio Municipal, Centro Cívico, Ciudad' },
     { label: 'Teléfono', value: '(502) 2222-0000' },
     { label: 'Correo', value: 'qrds@municipalidad.gob.gt' },
@@ -67,8 +68,7 @@ export class PortalComponent implements OnInit, OnDestroy {
   get enlaceSesion() {
     const usuario = this.usuario;
     if (!usuario) return '/login';
-    if (usuario.rol === 'CIUDADANO') return '/ciudadano';
-    return this.auth.destinosPorRol[usuario.rol];
+    return this.auth.destinoDeRol(usuario.rol);
   }
 
   get textoSesion() {
@@ -137,6 +137,19 @@ export class PortalComponent implements OnInit, OnDestroy {
       if (estado.estado === 'UP') {
         this.disponible = true;
         await this.api.registrarAccesoPublico('ACCESO_PORTAL', 'OK');
+        try {
+          const institucion = await this.api.obtenerInstitucion();
+          if (this.cancelado) return;
+          this.nombreInstitucion = institucion.nombre || this.nombreInstitucion;
+          this.contactos = [
+            { label: 'Dirección', value: institucion.direccion },
+            { label: 'Teléfono', value: institucion.telefono },
+            { label: 'Correo', value: institucion.correo },
+            { label: 'Horario presencial', value: institucion.horario },
+          ];
+        } catch {
+          // El portal sigue con los textos iniciales si la configuración no responde.
+        }
       } else {
         this.disponible = false;
       }

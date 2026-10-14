@@ -45,6 +45,10 @@ public final class CasoPublicoDtos {
             boolean esAnonimo) {
 
         public static RegistroCasoRespuesta de(Caso caso, boolean correoEnviado) {
+            return de(caso, correoEnviado, caso.getTipoCaso().plazoEstimado());
+        }
+
+        public static RegistroCasoRespuesta de(Caso caso, boolean correoEnviado, String plazoEstimado) {
             return new RegistroCasoRespuesta(
                     caso.getCodigoSeguimiento(),
                     "Caso registrado correctamente. Guarde su código de seguimiento.",
@@ -52,7 +56,7 @@ public final class CasoPublicoDtos {
                     caso.getTipoCaso().name(),
                     caso.getTipoCaso().getEtiqueta(),
                     caso.getEstado().name(),
-                    caso.getTipoCaso().plazoEstimado(),
+                    plazoEstimado,
                     correoEnviado,
                     caso.isEsAnonimo());
         }

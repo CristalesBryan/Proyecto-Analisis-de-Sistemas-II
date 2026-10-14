@@ -28,7 +28,8 @@ public final class AuthDtos {
             String dpi,
             String rol,
             String areaDependencia,
-            List<String> permisos) {
+            List<String> permisos,
+            boolean forzarCambioPassword) {
 
         public static UsuarioAutenticado de(Usuario usuario) {
             String area = usuario.getAreaDependencia() == null
@@ -46,7 +47,8 @@ public final class AuthDtos {
                     usuario.getDpi(),
                     usuario.getRol().name(),
                     area,
-                    permisos);
+                    permisos,
+                    usuario.isForzarCambioPassword());
         }
     }
 

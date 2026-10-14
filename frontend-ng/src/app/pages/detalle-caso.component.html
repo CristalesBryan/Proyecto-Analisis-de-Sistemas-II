@@ -26,6 +26,11 @@
               <h1 class="h2 mb-0">{{ caso.codigoSeguimiento }}</h1>
             </div>
             <div class="d-flex flex-wrap gap-2">
+              @if (puedeAsignar) {
+                <a class="btn btn-outline-civic btn-sm" [routerLink]="rutaBitacora" [queryParams]="{ caso: caso.codigoSeguimiento }">
+                  Ver bitácora
+                </a>
+              }
               <span class="estado" [class]="'estado estado-' + caso.estado">{{ etiquetaEstado(caso.estado) }}</span>
               @if (!caso.plazo || caso.plazo.diasRestantes === null) {
                 <span class="small text-secondary">Sin plazo</span>
@@ -151,23 +156,62 @@
         @if (pestana === 'documentos') {
           <div class="panel p-4">
             <h2 class="h5">Documentos</h2>
-            @if (!finalizado) {
-              <label class="dropzone d-block mb-3">
-                {{ subiendoDoc ? 'Cargando documento…' : 'PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos' }}
+            <p class="small text-secondary">PDF, JPG, PNG o DOCX · máximo 5 MB. En el registro público el máximo es de cinco archivos. Los registros son de consulta y descarga; la ubicación interna del archivo no se muestra.</p>
+            @if (puedeAdjuntar) {
+              @if (exigeJustificacionCarga) {
+                <label class="form-label small" for="justificacion-carga">Justificación de la carga excepcional</label>
+                <textarea id="justificacion-carga" class="form-control mb-2" rows="2" [value]="justificacionCarga" (input)="justificacionCarga = valor($event)" placeholder="Motivo de la excepción, mínimo 10 caracteres"></textarea>
+              }
+              <label
+                class="dropzone d-block mb-3"
+                [class.activa]="arrastrando"
+                (dragover)="prepararSoltar($event)"
+                (dragleave)="salirSoltar($event)"
+                (drop)="soltarDocumentos($event)">
+                {{ subiendoDoc ? 'Cargando documentos…' : 'Suelte archivos aquí o elija PDF, JPG, PNG o DOCX · máximo 5 MB' }}
                 <input type="file" class="d-none" multiple [disabled]="subiendoDoc" accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="subirDocumentos($event)">
               </label>
+            } @else {
+              <p class="small text-secondary">Este caso no admite nuevas cargas. Puede descargar los documentos del historial.</p>
             }
             @if (avisoDocs) {
               <p class="alert alert-warning">{{ avisoDocs }}</p>
+            }
+            @if (colaDocs.length > 0) {
+              <ul class="list-unstyled mb-3">
+                @for (item of colaDocs; track item.nombre + $index) {
+                  <li class="small mb-1">
+                    <span>{{ item.nombre }}</span>
+                    @if (item.estado === 'cargando') { <span class="text-secondary"> · cargando</span> }
+                    @if (item.estado === 'listo') { <span class="text-success"> · cargado</span> }
+                    @if (item.estado === 'error') { <span class="text-danger"> · {{ item.motivo }}</span> }
+                  </li>
+                }
+              </ul>
             }
             @if (caso.documentos.length === 0) {
               <p class="small text-secondary mb-0">Sin adjuntos.</p>
             } @else {
               <ul class="list-unstyled mb-0">
                 @for (doc of caso.documentos; track doc.id) {
-                  <li class="d-flex justify-content-between gap-3 small mb-2">
-                    <span class="text-truncate">{{ doc.nombreArchivo }}</span>
-                    <button type="button" class="btn btn-link btn-sm" (click)="descargar(doc.id, doc.nombreArchivo)">Descargar</button>
+                  <li class="border rounded px-3 py-2 mb-2">
+                    <div class="d-flex justify-content-between gap-3 small">
+                      <div class="text-truncate">
+                        <p class="mb-0 text-truncate">{{ doc.nombreArchivo }}</p>
+                        <p class="mb-0 text-secondary">{{ etiquetaTipo(doc.tipoMime, doc.nombreArchivo) }} · {{ formatoTamano(doc.tamanioBytes) }} · {{ formatFechaHora(doc.subidoEn) }}{{ doc.subidoPorNombre ? ' · ' + doc.subidoPorNombre : '' }}</p>
+                      </div>
+                      <div class="d-flex flex-column align-items-end">
+                        <button type="button" class="btn btn-link btn-sm" (click)="descargar(doc.id, doc.nombreArchivo)">Descargar</button>
+                        @if (puedeAnular) {
+                          <button type="button" class="btn btn-link btn-sm text-danger" (click)="abrirBaja(doc.id)">Dar de baja</button>
+                        }
+                      </div>
+                    </div>
+                    @if (documentoBaja === doc.id) {
+                      <label class="form-label small mt-2" [attr.for]="'baja-' + doc.id">Justificación de la baja</label>
+                      <textarea [id]="'baja-' + doc.id" class="form-control mb-2" rows="2" [value]="justificacionBaja" (input)="justificacionBaja = valor($event)"></textarea>
+                      <button type="button" class="btn btn-outline-danger btn-sm" [disabled]="justificacionBaja.trim().length < 10" (click)="confirmarBaja(doc.id)">Confirmar baja</button>
+                    }
                   </li>
                 }
               </ul>
@@ -177,16 +221,87 @@
 
         @if (pestana === 'historial') {
           <div class="panel p-4">
-            <h2 class="h5">Historial de estados</h2>
-            <ol class="mb-0">
-              @for (evento of caso.historial; track evento.fechaHora + $index) {
-                <li class="mb-3 small">
-                  <p class="mb-0">{{ evento.tipoEvento.split('_').join(' ') }}{{ evento.estadoNuevo ? ' · ' + evento.estadoNuevo : '' }}</p>
-                  <p class="text-secondary mb-0">{{ evento.usuarioNombre }} · {{ formatFechaHora(evento.fechaHora) }}</p>
-                  <p class="text-secondary mb-0" style="white-space: pre-wrap;">{{ evento.descripcion }}</p>
-                </li>
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+              <h2 class="h5 mb-0">Historial del caso</h2>
+              <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-civic btn-sm" (click)="exportarHistorial()">Exportar historial</button>
+                @if (puedeAsignar) {
+                  <button type="button" class="btn btn-outline-civic btn-sm" (click)="verVistaCiudadano()">
+                    {{ vistaCiudadano ? 'Ocultar vista ciudadana' : 'Ver vista ciudadana' }}
+                  </button>
+                  <a class="btn btn-outline-civic btn-sm" [routerLink]="rutaBitacora" [queryParams]="{ caso: caso.codigoSeguimiento }">Ver en bitácora</a>
+                }
+              </div>
+            </div>
+            <p class="small text-secondary">La línea de tiempo es de solo lectura. Lo más reciente aparece primero. Las entradas internas no se muestran en la consulta pública.</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              @for (filtro of filtrosHistorial; track filtro.id) {
+                <button type="button" class="btn btn-sm" [class.btn-primary]="filtroHistorial === filtro.id" [class.btn-outline-civic]="filtroHistorial !== filtro.id" (click)="elegirFiltro(filtro.id)">
+                  {{ filtro.label }}
+                </button>
               }
-            </ol>
+            </div>
+            <div class="d-flex gap-2 mb-3">
+              <input class="form-control form-control-sm" [value]="buscaHistorial" (input)="buscaHistorial = valor($event)" placeholder="Buscar en el resumen" (keyup.enter)="cargarHistorial(0)">
+              <button type="button" class="btn btn-outline-civic btn-sm" (click)="cargarHistorial(0)">Buscar</button>
+            </div>
+            @if (avisoHistorial) {
+              <p class="alert alert-warning">{{ avisoHistorial }}</p>
+            }
+            @if (vistaCiudadano) {
+              <div class="border rounded p-3 mb-3 small">
+                <p class="fw-medium mb-1">Vista que vería el ciudadano</p>
+                <p class="mb-1">{{ vistaCiudadano.codigoSeguimiento }} · {{ etiquetaEstado(vistaCiudadano.estado) }}</p>
+                <p class="text-secondary mb-2">Registrado {{ formatFechaHora(vistaCiudadano.fechaRegistro) }}</p>
+                @if (vistaCiudadano.seguimientos.length === 0) {
+                  <p class="mb-0 text-secondary">Sin avances públicos.</p>
+                } @else {
+                  <ul class="mb-0">
+                    @for (item of vistaCiudadano.seguimientos; track item.id) {
+                      <li>{{ item.titulo }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+            }
+            @if (cargandoHistorial) {
+              <p class="small text-secondary">Cargando historial…</p>
+            } @else if (eventosHistorial.length === 0) {
+              <p class="small text-secondary mb-0">No hay eventos de este tipo.</p>
+            } @else {
+              <ol class="list-unstyled mb-0">
+                @for (evento of eventosHistorial; track evento.id) {
+                  <li class="border rounded px-3 py-2 mb-2 small">
+                    <div class="d-flex justify-content-between gap-3">
+                      <div>
+                        <p class="mb-0">{{ evento.titulo }}</p>
+                        <p class="text-secondary mb-0">{{ evento.autor }} · {{ formatFechaHora(evento.fechaHora) }}</p>
+                      </div>
+                      <span class="badge text-bg-light border">{{ evento.interno ? 'Interno' : 'Público' }}</span>
+                    </div>
+                    <p class="mb-0 mt-2">{{ evento.resumen }}</p>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                      <button type="button" class="btn btn-link btn-sm p-0" (click)="abrirEvento(evento.id)">
+                        {{ eventoAbierto === evento.id ? 'Ocultar detalle' : 'Ver detalle' }}
+                      </button>
+                      @if (evento.documentoId) {
+                        <button type="button" class="btn btn-link btn-sm p-0" (click)="descargar(evento.documentoId, evento.resumen.split(' · ')[0])">Descargar</button>
+                      }
+                    </div>
+                    @if (eventoAbierto === evento.id) {
+                      <p class="mb-0 mt-2 text-secondary" style="white-space: pre-wrap;">{{ evento.detalle }}</p>
+                    }
+                  </li>
+                }
+              </ol>
+              @if (totalHistorial > eventosHistorial.length) {
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                  <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="paginaHistorial === 0" (click)="cargarHistorial(paginaHistorial - 1)">Anterior</button>
+                  <span class="small text-secondary">{{ totalHistorial }} eventos</span>
+                  <button type="button" class="btn btn-outline-civic btn-sm" [disabled]="(paginaHistorial + 1) * 100 >= totalHistorial" (click)="cargarHistorial(paginaHistorial + 1)">Siguiente</button>
+                </div>
+              }
+            }
           </div>
         }
       </div>
@@ -195,7 +310,7 @@
         @if (caso.estado === 'RESUELTO') {
           <div class="panel p-4 mb-3">
             <h2 class="h5">Caso resuelto</h2>
-            <p class="small text-secondary">El caso ya fue resuelto. La información solo puede consultarse.</p>
+            <p class="small text-secondary">El caso ya fue resuelto. Puede consultar el expediente y adjuntar documentos. El cierre formal se registra aparte.</p>
             @if (puedeCerrar) {
               <a class="btn btn-primary w-100" [routerLink]="['/casos', caso.id, 'cerrar']">Cerrar caso</a>
             }
@@ -204,7 +319,7 @@
         @if (caso.estado === 'CERRADO') {
           <div class="panel p-4 mb-3">
             <h2 class="h5">Expediente cerrado</h2>
-            <p class="small text-secondary mb-0">El caso quedó archivado. La información y el historial se conservan para consulta; no admite modificaciones ni nuevos adjuntos.</p>
+            <p class="small text-secondary mb-0">{{ puedeAdjuntar ? 'El caso quedó archivado. El historial se conserva. Una carga nueva solo procede con justificación.' : 'El caso quedó archivado. La información y el historial se conservan para consulta; no admite modificaciones ni nuevos adjuntos.' }}</p>
           </div>
         }
         @if (caso.estado === 'EN_PROCESO') {
@@ -233,23 +348,48 @@
             <button type="button" class="btn btn-outline-civic w-100" [disabled]="motivoEscalar.trim().length < 10" (click)="confirmar = 'escalar'">Escalar caso</button>
           </div>
         }
-        @if (puedeAsignar && !finalizado) {
+        @if (puedeAsignar && !caso.agenteAsignadoId && !finalizado) {
           <div class="panel p-4 mb-3">
-            <h2 class="h5">{{ caso.agenteAsignadoId ? 'Reasignar agente' : 'Asignar agente' }}</h2>
+            <h2 class="h5">Asignar agente</h2>
             @if (agentes.length === 0) {
               <p class="alert alert-warning mb-0">No hay agentes disponibles en esta área. Contacte al administrador.</p>
             } @else {
-              <select class="form-select mb-2" [value]="agenteId" (change)="agenteId = valor($event)">
+              <select class="form-select mb-2" [value]="agenteId" (change)="agenteId = valor($event)" aria-label="Agente a asignar">
                 @for (agente of agentes; track agente.id) {
-                  <option [value]="agente.id">{{ agente.nombre }}</option>
+                  <option [value]="agente.id">{{ agente.nombre }} · {{ agente.casosAbiertos }} abiertos</option>
                 }
               </select>
-              @if (caso.agenteAsignadoId) {
-                <textarea class="form-control mb-2" rows="3" [value]="motivo" (input)="motivo = valor($event)" placeholder="Motivo de reasignación"></textarea>
-                <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'reasignar'">Reasignar</button>
-              } @else {
-                <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'asignar'">Asignar y pasar a revisión</button>
+              <button type="button" class="btn btn-primary w-100" (click)="confirmar = 'asignar'">Asignar y pasar a revisión</button>
+            }
+          </div>
+        }
+        @if (puedeReasignar) {
+          <div class="panel p-4 mb-3">
+            <h2 class="h5">Reasignar caso</h2>
+            <p class="small text-secondary mb-3">El agente actual es <strong>{{ caso.agenteNombre }}</strong>. El estado del caso no cambia.</p>
+            @if (agentesParaReasignar.length === 0) {
+              <p class="alert alert-warning mb-0">No hay otro agente activo disponible para esta transferencia.</p>
+            } @else {
+              <label class="form-label" for="nuevo-agente">Nuevo agente</label>
+              <select id="nuevo-agente" class="form-select mb-3" [value]="agenteId" (change)="agenteId = valor($event); actualizarAreaCaso = false">
+                @for (agente of agentesParaReasignar; track agente.id) {
+                  <option [value]="agente.id">{{ agente.nombre }} · {{ agente.areaNombre }} · {{ agente.casosAbiertos }} abiertos</option>
+                }
+              </select>
+              <label class="form-label" for="motivo-reasignar">Justificación</label>
+              <textarea id="motivo-reasignar" class="form-control" rows="4" maxlength="1000" [class.is-invalid]="motivo.trim().length > 0 && motivo.trim().length < 50" [value]="motivo" (input)="motivo = valor($event)" placeholder="Motivo de la transferencia (entre 50 y 1000 caracteres)" aria-describedby="motivo-reasignar-ayuda"></textarea>
+              <p id="motivo-reasignar-ayuda" class="small mb-3" [class.text-danger]="motivo.trim().length > 0 && motivo.trim().length < 50" [class.text-secondary]="motivo.trim().length === 0 || motivo.trim().length >= 50">{{ motivo.trim().length }} / 1000@if (motivo.trim().length > 0 && motivo.trim().length < 50) { · La justificación debe tener entre 50 y 1000 caracteres.}</p>
+              <label class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" [checked]="notificarReasignacion" (change)="notificarReasignacion = marcado($event)">
+                <span class="form-check-label">Avisar al agente que recibe el caso y al que lo deja</span>
+              </label>
+              @if (usuario?.rol === 'ADMIN' && agenteDestino && agenteDestino.areaDependencia !== caso.area) {
+                <label class="form-check mb-3">
+                  <input type="checkbox" class="form-check-input" [checked]="actualizarAreaCaso" (change)="actualizarAreaCaso = marcado($event)">
+                  <span class="form-check-label">Actualizar el área del caso a {{ agenteDestino.areaNombre }}</span>
+                </label>
               }
+              <button type="button" class="btn btn-primary w-100" [disabled]="!reasignacionLista" (click)="confirmar = 'reasignar'">Reasignar</button>
             }
           </div>
         }

@@ -7,6 +7,7 @@ import gt.municipalidad.qrds.entity.TipoEventoCaso;
 import gt.municipalidad.qrds.entity.Usuario;
 import gt.municipalidad.qrds.repository.BitacoraCasoRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -16,6 +17,11 @@ public class BitacoraCasoService {
 
     public BitacoraCasoService(BitacoraCasoRepository repository) {
         this.repository = repository;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarDurable(Caso caso, Usuario usuario, TipoEventoCaso tipoEvento, String descripcion, String ip) {
+        repository.save(new BitacoraCaso(caso, usuario, tipoEvento, descripcion, ip));
     }
 
     @Transactional

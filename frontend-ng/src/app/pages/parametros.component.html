@@ -1,0 +1,135 @@
+<app-internal-layout>
+  <h1 class="h3 mb-2">Parámetros del sistema</h1>
+  <p class="text-secondary mb-4">Áreas, plazos, días no laborables y la configuración que usan el portal, los casos, los documentos, el correo y los reportes.</p>
+
+  @if (cargando) {
+    <p>Cargando parámetros…</p>
+  } @else if (configuracion) {
+    @if (!puedeEditar) {
+      <p class="alert alert-secondary">Puede consultar los parámetros. Solo el administrador los modifica.</p>
+    }
+    @if (exito) { <p class="alert alert-success">{{ exito }}</p> }
+    @if (advertencia) { <p class="alert alert-warning">{{ advertencia }}</p> }
+    @if (error && !confirmacion) { <p class="alert alert-danger">{{ error }}</p> }
+
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      @for (item of configuracion.grupos; track item.codigo) {
+        <button type="button" class="btn btn-sm" [class.btn-primary]="grupo === item.codigo" [class.btn-outline-civic]="grupo !== item.codigo" (click)="grupo = item.codigo">{{ item.nombre }}</button>
+      }
+      <button type="button" class="btn btn-sm" [class.btn-primary]="grupo === 'areas'" [class.btn-outline-civic]="grupo !== 'areas'" (click)="grupo = 'areas'">Áreas</button>
+      <button type="button" class="btn btn-sm" [class.btn-primary]="grupo === 'feriados'" [class.btn-outline-civic]="grupo !== 'feriados'" (click)="grupo = 'feriados'">Días no laborables</button>
+    </div>
+
+    @if (puedeEditar) {
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <button type="button" class="btn btn-outline-civic btn-sm" (click)="exportar()">Exportar</button>
+        <label class="btn btn-outline-civic btn-sm mb-0">
+          Importar
+          <input type="file" accept="application/json,.json" class="d-none" (change)="importar($event)">
+        </label>
+      </div>
+    }
+
+    @if (grupoActual) {
+      <section class="panel p-4">
+        <h2 class="h5">{{ grupoActual.nombre }}</h2>
+        <p class="small text-secondary">{{ grupoActual.ayuda }}</p>
+        @for (item of grupoActual.parametros; track item.clave) {
+          <div class="mb-3">
+            <label class="form-label" [for]="item.clave">{{ item.etiqueta }}</label>
+            <input [id]="item.clave" class="form-control" [class.is-invalid]="claveInvalida === item.clave" [value]="borradores[item.clave]" [disabled]="!puedeEditar" (input)="borradores[item.clave] = valor($event)">
+            <p class="small text-secondary mb-2">{{ item.ayuda }}</p>
+            @if (puedeEditar) {
+              <button type="button" class="btn btn-primary btn-sm" (click)="pedirParametro(item)">Guardar</button>
+              @if (item.clave.startsWith('plazo.')) {
+                <button type="button" class="btn btn-outline-civic btn-sm ms-2" (click)="pedirRecalcular(item)">Recalcular casos abiertos</button>
+              }
+            }
+          </div>
+        }
+        @if (puedeEditar) {
+          <button type="button" class="btn btn-outline-civic" (click)="pedirRestaurar()">Restaurar valores iniciales</button>
+        }
+      </section>
+    }
+
+    @if (grupo === 'areas') {
+      <section class="panel p-4">
+        <h2 class="h5">Áreas y dependencias</h2>
+        <p class="small text-secondary">Un área inactiva no recibe casos nuevos. Un área con casos o usuarios no se elimina.</p>
+        @if (puedeEditar) {
+          <div class="row g-2 mb-4">
+            <div class="col-md-3"><input class="form-control" placeholder="Código" [value]="codigoArea" (input)="codigoArea = valor($event)" aria-label="Código del área"></div>
+            <div class="col-md-6"><input class="form-control" placeholder="Nombre" [value]="nombreArea" (input)="nombreArea = valor($event)" aria-label="Nombre del área"></div>
+            <div class="col-md-3"><button type="button" class="btn btn-primary w-100" (click)="crearArea()">Agregar área</button></div>
+          </div>
+        }
+        @for (area of configuracion.areas; track area.id) {
+          <div class="border-top py-3">
+            <div class="row g-2 align-items-center">
+              <div class="col-md-3"><input class="form-control" [value]="area.codigo" [disabled]="!puedeEditar" (input)="area.codigo = valor($event)" [attr.aria-label]="'Código ' + area.codigo"></div>
+              <div class="col-md-5"><input class="form-control" [value]="area.nombre" [disabled]="!puedeEditar" (input)="area.nombre = valor($event)" [attr.aria-label]="'Nombre ' + area.codigo"></div>
+              <div class="col-md-4">
+                <label class="form-check">
+                  <input type="checkbox" class="form-check-input" [checked]="area.activo" [disabled]="!puedeEditar" (change)="area.activo = !area.activo">
+                  <span class="form-check-label">Activa · {{ area.casos }} casos · {{ area.usuarios }} usuarios</span>
+                </label>
+              </div>
+            </div>
+            @if (puedeEditar) {
+              <button type="button" class="btn btn-primary btn-sm mt-2" (click)="pedirArea(area)">Guardar área</button>
+              @if (area.casos + area.usuarios === 0) {
+                <button type="button" class="btn btn-outline-danger btn-sm mt-2 ms-2" (click)="pedirEliminarArea(area)">Eliminar</button>
+              }
+            }
+          </div>
+        }
+        @if (puedeEditar) {
+          <button type="button" class="btn btn-outline-civic mt-3" (click)="grupo = 'areas'; confirmacion = { tipo: 'restaurar', grupo: 'areas', nombre: 'Áreas' }">Restaurar áreas institucionales</button>
+        }
+      </section>
+    }
+
+    @if (grupo === 'feriados') {
+      <section class="panel p-4">
+        <h2 class="h5">Días no laborables</h2>
+        <p class="small text-secondary">El cálculo de plazo salta estas fechas. Los plazos ya guardados no se reescriben.</p>
+        @if (puedeEditar) {
+          <div class="row g-2 mb-4">
+            <div class="col-md-3"><input type="date" class="form-control" [value]="fechaFeriado" (input)="fechaFeriado = valor($event)" aria-label="Fecha no laborable"></div>
+            <div class="col-md-6"><input class="form-control" placeholder="Descripción" [value]="descripcionFeriado" (input)="descripcionFeriado = valor($event)" aria-label="Descripción del día no laborable"></div>
+            <div class="col-md-3"><button type="button" class="btn btn-primary w-100" (click)="pedirFeriado()">Agregar fecha</button></div>
+          </div>
+        }
+        @if (configuracion.feriados.length === 0) {
+          <p class="mb-0">No hay días no laborables registrados.</p>
+        }
+        @for (dia of configuracion.feriados; track dia.fecha) {
+          <div class="d-flex justify-content-between align-items-center border-top py-2">
+            <span>{{ dia.fecha }} · {{ dia.descripcion }}</span>
+            @if (puedeEditar) {
+              <button type="button" class="btn btn-outline-danger btn-sm" (click)="confirmacion = { tipo: 'eliminar-feriado', fecha: dia.fecha }">Quitar</button>
+            }
+          </div>
+        }
+        @if (puedeEditar) {
+          <button type="button" class="btn btn-outline-civic mt-3" (click)="confirmacion = { tipo: 'restaurar', grupo: 'feriados', nombre: 'Días no laborables' }">Restaurar (dejar vacío)</button>
+        }
+      </section>
+    }
+  }
+
+  @if (confirmacion) {
+    <div class="overlay">
+      <div class="panel p-4 w-100" style="max-width: 32rem;">
+        <h2 class="h4">Confirmar cambio</h2>
+        <p>{{ textoConfirmacion() }}</p>
+        @if (error) { <p class="alert alert-danger">{{ error }}</p> }
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-primary" [disabled]="enviando" (click)="confirmar()">{{ enviando ? 'Guardando…' : 'Confirmar' }}</button>
+          <button type="button" class="btn btn-outline-civic" (click)="confirmacion = null">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  }
+</app-internal-layout>

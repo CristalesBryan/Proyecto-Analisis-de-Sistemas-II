@@ -15,17 +15,26 @@ public final class DocumentoDtos {
             String tipoMime,
             long tamanioBytes,
             Instant subidoEn,
-            String origen) {
+            String origen,
+            String subidoPorNombre) {
 
         public static DocumentoResumen de(DocumentoCaso documento) {
+            String autor = documento.getSubidoPor() == null ? null : documento.getSubidoPor().getNombre();
             return new DocumentoResumen(
                     documento.getId(),
                     documento.getNombreArchivo(),
                     documento.getTipoMime(),
                     documento.getTamanioBytes(),
                     documento.getSubidoEn(),
-                    documento.getOrigen().name());
+                    documento.getOrigen().name(),
+                    autor);
         }
+    }
+
+    public record BajaDocumentoRequest(String justificacion) {
+    }
+
+    public record MensajeDocumento(String mensaje) {
     }
 
     public record ArchivoSubido(Long id, String nombreArchivo) {

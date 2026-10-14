@@ -40,6 +40,7 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
   @ViewChild('captcha') captcha?: RecaptchaComponent;
 
   readonly pasos = ['Tipo', 'Datos', 'Adjuntos'];
+  catalogoTipos = TIPOS.map((tipo) => ({ ...tipo }));
   readonly formatFechaHora = formatFechaHora;
   paso = 1;
   tipoCaso: TipoCaso | '' = '';
@@ -52,6 +53,7 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
   denunciado = '';
   esAnonimo = false;
   archivos: File[] = [];
+  arrastrando = false;
   erroresArchivo: string[] = [];
   aceptaPrivacidad = false;
   areas: AreaDependencia[] = [];
@@ -75,6 +77,12 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.sub = this.route.queryParamMap.subscribe((params) => this.aplicarTipo(params.get('tipo')));
     void this.api.obtenerAreas().then((areas) => (this.areas = areas)).catch(() => (this.areas = []));
+    void this.api.obtenerInstitucion().then((institucion) => {
+      this.catalogoTipos = this.catalogoTipos.map((tipo) => {
+        const plazo = institucion.plazos.find((item) => item.codigo === tipo.codigo);
+        return plazo ? { ...tipo, plazo: plazo.texto } : tipo;
+      });
+    }).catch(() => undefined);
   }
 
   ngOnDestroy() {
@@ -86,12 +94,12 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
   }
 
   get tiposVisibles() {
-    return TIPOS.filter((tipo) => this.tiposPermitidos.includes(tipo.codigo));
+    return this.catalogoTipos.filter((tipo) => this.tiposPermitidos.includes(tipo.codigo));
   }
 
   get tituloRegistro() {
     if (this.tiposPermitidos.length === 1) {
-      const nombre = TIPOS.find((tipo) => tipo.codigo === this.tiposPermitidos[0])?.nombre.toLowerCase();
+      const nombre = this.catalogoTipos.find((tipo) => tipo.codigo === this.tiposPermitidos[0])?.nombre.toLowerCase();
       return `Registrar ${nombre}`;
     }
     if (this.tiposPermitidos.length === 2) return 'Registrar reclamo o denuncia';
@@ -99,7 +107,7 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
   }
 
   get tipoSeleccionado() {
-    return TIPOS.find((item) => item.codigo === this.tipoCaso);
+    return this.catalogoTipos.find((item) => item.codigo === this.tipoCaso);
   }
 
   get areaNombre() {
@@ -182,14 +190,35 @@ export class RegistroCasoComponent implements OnInit, OnDestroy {
     this.paso -= 1;
   }
 
+  prepararSoltar(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = true;
+  }
+
+  salirSoltar(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = false;
+  }
+
+  soltarArchivos(event: DragEvent) {
+    event.preventDefault();
+    this.arrastrando = false;
+    const lista = event.dataTransfer?.files;
+    if (lista) this.incorporarArchivos(Array.from(lista));
+  }
+
   agregarArchivos(event: Event) {
     const input = event.target as HTMLInputElement;
-    const lista = input.files;
+    const lista = input.files ? Array.from(input.files) : [];
     input.value = '';
-    if (!lista) return;
+    if (lista.length === 0) return;
+    this.incorporarArchivos(lista);
+  }
+
+  private incorporarArchivos(lista: File[]) {
     const nuevos = [...this.archivos];
     const errores: string[] = [];
-    for (const file of Array.from(lista)) {
+    for (const file of lista) {
       if (nuevos.length >= MAX_ARCHIVOS) {
         errores.push(`${file.name}: máximo 5 archivos por caso.`);
         continue;

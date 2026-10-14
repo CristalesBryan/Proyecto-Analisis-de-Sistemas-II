@@ -1,6 +1,6 @@
 <main class="page-pad">
   <header class="topbar d-flex align-items-center justify-content-between mx-auto" style="max-width: 72rem;">
-    <a class="brand" [routerLink]="bandeja">
+    <a class="brand" [routerLink]="inicio">
       <span class="brand-mark">QRDS</span>
     </a>
     <div class="d-flex align-items-center gap-3">
@@ -19,19 +19,17 @@
   <div class="row g-4 mx-auto mt-1" style="max-width: 72rem;">
     <aside class="col-lg-2">
       <nav class="panel side-nav p-2 d-flex flex-row flex-lg-column gap-1">
-        @if (rol !== 'AGENTE') {
-          <a [routerLink]="inicio" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
-        }
+        <a [routerLink]="inicio" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Inicio</a>
         <a [routerLink]="bandeja" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">
           {{ rol === 'AGENTE' ? 'Mis casos' : 'Bandeja de casos' }}
         </a>
-        @if (rol === 'ADMIN') {
-          <span class="text-secondary">Usuarios</span>
-          <span class="text-secondary">Bitácoras</span>
+        @if (rol === 'ADMIN' || rol === 'SUPERVISOR') {
+          <a [routerLink]="reportes" routerLinkActive="active">Reportes</a>
+          <a [routerLink]="usuarios" routerLinkActive="active">Usuarios</a>
+          <a [routerLink]="bitacoras" routerLinkActive="active">Bitácoras</a>
+          <a [routerLink]="parametros" routerLinkActive="active">Parámetros</a>
         }
-        @if (rol === 'SUPERVISOR') {
-          <span class="text-secondary">Reportes</span>
-        }
+        <a routerLink="/perfil" routerLinkActive="active">Mi contraseña</a>
       </nav>
     </aside>
     <section class="col-lg-10 min-w-0">

@@ -45,6 +45,27 @@ public class DocumentoCaso {
     @JoinColumn(name = "subido_por_id")
     private Usuario subidoPor;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "seguimiento_id")
+    private SeguimientoCaso seguimiento;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resolucion_id")
+    private ResolucionCaso resolucion;
+
+    @Column
+    private Boolean activo = true;
+
+    @Column(name = "motivo_baja", columnDefinition = "TEXT")
+    private String motivoBaja;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "baja_por_id")
+    private Usuario bajaPor;
+
+    @Column(name = "baja_en")
+    private Instant bajaEn;
+
     @Column(name = "subido_en", nullable = false)
     private Instant subidoEn = Instant.now();
 
@@ -103,5 +124,28 @@ public class DocumentoCaso {
 
     public Instant getSubidoEn() {
         return subidoEn;
+    }
+
+    public boolean isActivo() {
+        return activo == null || activo;
+    }
+
+    public String getMotivoBaja() {
+        return motivoBaja;
+    }
+
+    public void asociarSeguimiento(SeguimientoCaso seguimiento) {
+        this.seguimiento = seguimiento;
+    }
+
+    public void asociarResolucion(ResolucionCaso resolucion) {
+        this.resolucion = resolucion;
+    }
+
+    public void darDeBaja(Usuario usuario, String motivo) {
+        this.activo = false;
+        this.motivoBaja = motivo;
+        this.bajaPor = usuario;
+        this.bajaEn = Instant.now();
     }
 }

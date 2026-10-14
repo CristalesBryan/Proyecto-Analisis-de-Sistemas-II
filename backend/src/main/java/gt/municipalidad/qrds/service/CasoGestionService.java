@@ -12,7 +12,10 @@ import gt.municipalidad.qrds.dto.CasoDtos.ModificarCasoRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.ObservacionRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.PaginaCasos;
 import gt.municipalidad.qrds.dto.CasoDtos.ProrrogaRequest;
+import gt.municipalidad.qrds.dto.CasoDtos.ReasignacionMasivaRespuesta;
+import gt.municipalidad.qrds.dto.CasoDtos.ReasignarMasivoRequest;
 import gt.municipalidad.qrds.dto.CasoDtos.ReasignarRequest;
+import gt.municipalidad.qrds.dto.CasoDtos.ResultadoReasignacion;
 import gt.municipalidad.qrds.dto.DocumentoDtos.DocumentoResumen;
 import gt.municipalidad.qrds.entity.AreaDependencia;
 import gt.municipalidad.qrds.entity.Caso;
@@ -40,24 +43,36 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class CasoGestionService {
+
+    private static final Logger log = LoggerFactory.getLogger(CasoGestionService.class);
+    private static final List<EstadoCaso> ESTADOS_CERRADOS = List.of(EstadoCaso.CERRADO, EstadoCaso.ANULADO);
 
     private static final Map<String, String> ORDEN = Map.of(
             "codigo", "codigoSeguimiento",
@@ -78,7 +93,9 @@ public class CasoGestionService {
     private final PlazoService plazoService;
     private final NotificacionService notificacionService;
     private final ResolucionCasoRepository resolucionCasoRepository;
+    private final DocumentoService documentoService;
     private final Path directorio;
+    private final TransactionTemplate reasignacionTx;
 
     public CasoGestionService(
             CasoRepository casoRepository,
@@ -91,7 +108,9 @@ public class CasoGestionService {
             PlazoService plazoService,
             NotificacionService notificacionService,
             ResolucionCasoRepository resolucionCasoRepository,
-            @Value("${qrds.archivos.directorio}") String directorio) {
+            @Lazy DocumentoService documentoService,
+            @Value("${qrds.archivos.directorio}") String directorio,
+            PlatformTransactionManager transactionManager) {
         this.casoRepository = casoRepository;
         this.usuarioRepository = usuarioRepository;
         this.areaDependenciaRepository = areaDependenciaRepository;
@@ -102,7 +121,10 @@ public class CasoGestionService {
         this.plazoService = plazoService;
         this.notificacionService = notificacionService;
         this.resolucionCasoRepository = resolucionCasoRepository;
+        this.documentoService = documentoService;
         this.directorio = Path.of(directorio);
+        this.reasignacionTx = new TransactionTemplate(transactionManager);
+        this.reasignacionTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +137,9 @@ public class CasoGestionService {
             LocalDate desde,
             LocalDate hasta,
             Boolean sinAsignar,
+            Boolean vencido,
+            Boolean abiertos,
+            Boolean soloAsignados,
             String orden,
             String direccion,
             int page,
@@ -127,6 +152,15 @@ public class CasoGestionService {
                 ORDEN.getOrDefault(orden == null ? "" : orden, "fechaRegistro"));
         Specification<Caso> spec = CasoSpecifications.visiblePara(usuario)
                 .and(CasoSpecifications.conFiltros(estado, tipo, area, codigo, desde, hasta, sinAsignar));
+        if (Boolean.TRUE.equals(vencido)) {
+            spec = spec.and(CasoSpecifications.vencidosAbiertos(LocalDate.now(ZoneOffset.UTC)));
+        }
+        if (Boolean.TRUE.equals(abiertos)) {
+            spec = spec.and(CasoSpecifications.abiertos());
+        }
+        if (Boolean.TRUE.equals(soloAsignados)) {
+            spec = spec.and(CasoSpecifications.asignadosA(usuario));
+        }
         try {
             Page<Caso> resultado = casoRepository.findAll(spec, PageRequest.of(pagina - 1, tamano, sort));
             return new PaginaCasos(
@@ -167,7 +201,11 @@ public class CasoGestionService {
         List<Usuario> agentes = codigo == null
                 ? usuarioRepository.findByRolAndActivoTrueOrderByNombreAsc(Rol.AGENTE)
                 : usuarioRepository.findByRolAndActivoTrueAndAreaDependencia_CodigoOrderByNombreAsc(Rol.AGENTE, codigo);
-        return agentes.stream().map(CasoMapper::agente).toList();
+        return agentes.stream()
+                .map(agente -> CasoMapper.agente(
+                        agente,
+                        (int) casoRepository.countByAgenteAsignado_IdAndEstadoNotIn(agente.getId(), ESTADOS_CERRADOS)))
+                .toList();
     }
 
     @Transactional
@@ -202,36 +240,52 @@ public class CasoGestionService {
 
     @Transactional
     public AccionCasoRespuesta reasignar(Long casoId, ReasignarRequest request, Usuario usuario, String ip) {
-        Permisos.exigir(usuario, Permiso.CASOS_ASIGNAR);
-        Caso caso = localizarVisible(casoId, usuario);
-        exigirNoFinalizado(caso);
-        if (caso.getAgenteAsignado() == null) {
+        Caso caso = aplicarReasignacion(casoId, request, usuario, ip);
+        return new AccionCasoRespuesta("Caso actualizado correctamente.", detalleDe(caso, usuario));
+    }
+
+    public ReasignacionMasivaRespuesta reasignarMasivo(ReasignarMasivoRequest request, Usuario usuario, String ip) {
+        if (usuario.getRol() != Rol.ADMIN) {
             throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "CASO_NO_DISPONIBLE",
-                    "El caso seleccionado ya no se encuentra disponible para la operación.");
+                    HttpStatus.FORBIDDEN,
+                    "PERMISO_DENEGADO",
+                    "No tiene autorización para realizar esta operación.");
         }
-        Usuario anteriorAgente = caso.getAgenteAsignado();
-        Usuario agente = agenteDelArea(request.agenteId(), caso);
-        if (anteriorAgente.getId().equals(agente.getId())) {
+        Permisos.exigir(usuario, Permiso.CASOS_ASIGNAR);
+        Set<Long> origenes = new LinkedHashSet<>();
+        for (Long casoId : request.ids()) {
+            casoRepository.findById(casoId).ifPresent(caso -> {
+                if (caso.getAgenteAsignado() != null) {
+                    origenes.add(caso.getAgenteAsignado().getId());
+                }
+            });
+        }
+        if (origenes.size() > 1) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
-                    "AGENTE_INVALIDO",
-                    "Seleccione un agente distinto al asignado actualmente.");
+                    "ORIGEN_DISTINTO",
+                    "Seleccione casos del mismo agente de origen.");
         }
-        caso.setAgenteAsignado(agente);
-        caso.tocar();
-        bitacoraCasoService.registrar(
-                caso,
-                usuario,
-                TipoEventoCaso.REASIGNACION,
-                "Reasignación de " + anteriorAgente.getNombre() + " a " + agente.getNombre()
-                        + ". Motivo: " + request.motivo().trim(),
-                ip,
-                caso.getEstado(),
-                caso.getEstado());
-        notificacionService.notificarAgenteAsignado(caso, agente);
-        return new AccionCasoRespuesta("Caso actualizado correctamente.", detalleDe(caso, usuario));
+        ReasignarRequest individual = new ReasignarRequest(
+                request.agenteId(), request.motivo(), request.notificar(), false);
+        List<ResultadoReasignacion> resultados = new ArrayList<>();
+        for (Long casoId : request.ids()) {
+            try {
+                Caso caso = reasignacionTx.execute(status -> aplicarReasignacion(casoId, individual, usuario, ip));
+                resultados.add(new ResultadoReasignacion(
+                        casoId,
+                        caso == null ? null : caso.getCodigoSeguimiento(),
+                        true,
+                        "Caso actualizado correctamente."));
+            } catch (ApiException ex) {
+                resultados.add(new ResultadoReasignacion(casoId, codigoDe(casoId), false, ex.getMessage()));
+            } catch (RuntimeException ex) {
+                log.warn("No fue posible reasignar el caso {}", casoId, ex);
+                resultados.add(new ResultadoReasignacion(
+                        casoId, codigoDe(casoId), false, "No fue posible reasignar este caso."));
+            }
+        }
+        return new ReasignacionMasivaRespuesta(resultados);
     }
 
     @Transactional
@@ -382,6 +436,9 @@ public class CasoGestionService {
                     errores);
         }
         String ruta = guardarConstancia(caso, archivo);
+        String nombreConstancia = archivo == null || archivo.isEmpty()
+                ? null
+                : Archivos.nombreSeguro(archivo.getOriginalFilename());
         resolucionCasoRepository.findByCasoIdAndVigenteTrue(caso.getId()).ifPresent(anterior -> {
             anterior.setVigente(false);
             resolucionCasoRepository.save(anterior);
@@ -394,6 +451,19 @@ public class CasoGestionService {
         boolean notificado = notificacionService.notificarResolucion(caso, tipo.getEtiqueta());
         resolucion.registrarNotificacion(notificado);
         resolucionCasoRepository.save(resolucion);
+        if (ruta != null && nombreConstancia != null && archivo != null) {
+            documentoService.registrarReferencia(
+                    caso,
+                    null,
+                    resolucion,
+                    nombreConstancia,
+                    ruta,
+                    Archivos.mime(nombreConstancia),
+                    archivo.getSize(),
+                    usuario,
+                    ip,
+                    "Carga de constancia " + nombreConstancia + " en " + caso.getCodigoSeguimiento() + ".");
+        }
         bitacoraCasoService.registrar(
                 caso,
                 usuario,
@@ -498,7 +568,7 @@ public class CasoGestionService {
     }
 
     CasoDetalle detalleDe(Caso caso, Usuario usuario) {
-        List<DocumentoResumen> documentos = documentoCasoRepository.findByCasoOrderBySubidoEnDesc(caso).stream()
+        List<DocumentoResumen> documentos = documentoCasoRepository.findActivosByCaso(caso).stream()
                 .map(DocumentoResumen::de)
                 .toList();
         return CasoMapper.detalle(
@@ -508,6 +578,10 @@ public class CasoGestionService {
                 observacionCasoRepository.findByCasoOrderByCreadoEnDesc(caso),
                 bitacoraCasoRepository.findByCasoOrderByFechaHoraDesc(caso),
                 plazoService);
+    }
+
+    public boolean puedeConsultar(Usuario usuario, Caso caso) {
+        return puedeVer(usuario, caso);
     }
 
     Caso localizarVisible(Long casoId, Usuario usuario) {
@@ -607,6 +681,94 @@ public class CasoGestionService {
         return usuario.getAreaDependencia() != null
                 && caso.getAreaDependencia() != null
                 && usuario.getAreaDependencia().getId().equals(caso.getAreaDependencia().getId());
+    }
+
+    private Caso aplicarReasignacion(Long casoId, ReasignarRequest request, Usuario usuario, String ip) {
+        Permisos.exigir(usuario, Permiso.CASOS_ASIGNAR);
+        Caso caso = localizarVisible(casoId, usuario);
+        if (caso.getEstado() == EstadoCaso.CERRADO || caso.getEstado() == EstadoCaso.ANULADO) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "ESTADO_FINAL",
+                    "No se puede reasignar un caso cerrado o anulado.");
+        }
+        if (caso.getAgenteAsignado() == null) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CASO_SIN_AGENTE",
+                    "El caso aún no está asignado. Asigne el caso en la administración del caso.");
+        }
+        Usuario anteriorAgente = caso.getAgenteAsignado();
+        Usuario agente = agenteDestino(request.agenteId(), caso, usuario);
+        if (anteriorAgente.getId().equals(agente.getId())) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "AGENTE_INVALIDO",
+                    "Seleccione un agente distinto.");
+        }
+        boolean cambiarArea = Boolean.TRUE.equals(request.actualizarArea())
+                && usuario.getRol() == Rol.ADMIN
+                && agente.getAreaDependencia() != null
+                && (caso.getAreaDependencia() == null
+                        || !caso.getAreaDependencia().getId().equals(agente.getAreaDependencia().getId()));
+        String areaAnterior = caso.getAreaDependencia() == null ? "" : caso.getAreaDependencia().getNombre();
+        EstadoCaso estado = caso.getEstado();
+        if (cambiarArea) {
+            caso.setAreaDependencia(agente.getAreaDependencia());
+        }
+        caso.setAgenteAsignado(agente);
+        caso.tocar();
+        String descripcion = "Reasignación de " + anteriorAgente.getNombre() + " a " + agente.getNombre()
+                + ". Motivo: " + request.motivo().trim();
+        if (cambiarArea) {
+            descripcion += " El área del caso pasó de " + areaAnterior + " a "
+                    + agente.getAreaDependencia().getNombre() + ".";
+        }
+        bitacoraCasoService.registrar(
+                caso,
+                usuario,
+                TipoEventoCaso.REASIGNACION,
+                descripcion,
+                ip,
+                estado,
+                caso.getEstado());
+        if (request.notificar() == null || request.notificar()) {
+            try {
+                notificacionService.notificarReasignacion(caso, anteriorAgente, agente);
+            } catch (RuntimeException ex) {
+                log.warn(
+                        "La reasignación de {} quedó registrada. El aviso quedó pendiente de reintento.",
+                        caso.getCodigoSeguimiento());
+            }
+        }
+        return caso;
+    }
+
+    private Usuario agenteDestino(Long agenteId, Caso caso, Usuario actor) {
+        Usuario agente = usuarioRepository.findById(agenteId).orElseThrow(() -> new ApiException(
+                HttpStatus.BAD_REQUEST,
+                "AGENTE_INVALIDO",
+                "Seleccione un agente activo."));
+        if (agente.getRol() != Rol.AGENTE || !agente.isActivo()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "AGENTE_INVALIDO",
+                    "Seleccione un agente activo.");
+        }
+        if (actor.getRol() == Rol.SUPERVISOR
+                && (agente.getAreaDependencia() == null
+                        || caso.getAreaDependencia() == null
+                        || !agente.getAreaDependencia().getId().equals(caso.getAreaDependencia().getId()))) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "PERMISO_DENEGADO",
+                    "No tiene autorización para reasignar fuera de su área.");
+        }
+        return agente;
+    }
+
+    private String codigoDe(Long casoId) {
+        return casoRepository.findById(casoId).map(Caso::getCodigoSeguimiento).orElse(null);
     }
 
     private Usuario agenteDelArea(Long agenteId, Caso caso) {

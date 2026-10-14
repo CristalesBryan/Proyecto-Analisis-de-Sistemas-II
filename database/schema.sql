@@ -155,6 +155,10 @@ CREATE TABLE documentos_caso (
     subido_por_id   BIGINT REFERENCES usuarios(id),
     origen          VARCHAR(20)  NOT NULL DEFAULT 'CIUDADANO'
         CHECK (origen IN ('CIUDADANO', 'AGENTE', 'SISTEMA')),
+    activo          BOOLEAN      NOT NULL DEFAULT TRUE,
+    motivo_baja     TEXT,
+    baja_por_id     BIGINT REFERENCES usuarios(id),
+    baja_en         TIMESTAMPTZ,
     subido_en       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
@@ -217,6 +221,10 @@ CREATE TABLE resoluciones_caso (
 
 CREATE UNIQUE INDEX uq_resolucion_vigente
     ON resoluciones_caso (caso_id) WHERE vigente = TRUE;
+
+ALTER TABLE documentos_caso
+    ADD COLUMN seguimiento_id BIGINT REFERENCES seguimientos_caso(id),
+    ADD COLUMN resolucion_id BIGINT REFERENCES resoluciones_caso(id);
 
 CREATE TABLE cierres_caso (
     id           BIGSERIAL PRIMARY KEY,
@@ -295,14 +303,18 @@ CREATE TABLE reportes_generados (
     id              BIGSERIAL PRIMARY KEY,
     tipo_reporte    VARCHAR(20)  NOT NULL,
     solicitado_por  BIGINT       NOT NULL REFERENCES usuarios(id),
-    filtros_json    JSONB,
+    filtros_json    TEXT,
+    filtros_hash    VARCHAR(64),
     formato         VARCHAR(10)  NOT NULL CHECK (formato IN ('PDF', 'XLSX', 'PANTALLA')),
     estado          VARCHAR(20)  NOT NULL DEFAULT 'PENDIENTE'
         CHECK (estado IN ('PENDIENTE', 'PROCESANDO', 'LISTO', 'FALLIDO')),
     ruta_archivo    VARCHAR(500),
+    cantidad_filas  INT,
     error_mensaje   TEXT,
+    vista_previa    TEXT,
     creado_en       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    finalizado_en   TIMESTAMPTZ
+    finalizado_en   TIMESTAMPTZ,
+    expira_en       TIMESTAMPTZ
 );
 
 -- -----------------------------------------------------------------------------

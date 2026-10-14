@@ -37,6 +37,7 @@ public class SeguimientoRegistroService {
     private final SeguimientoCasoRepository seguimientoCasoRepository;
     private final BitacoraCasoService bitacoraCasoService;
     private final NotificacionService notificacionService;
+    private final DocumentoService documentoService;
     private final Path directorio;
 
     public SeguimientoRegistroService(
@@ -44,11 +45,13 @@ public class SeguimientoRegistroService {
             SeguimientoCasoRepository seguimientoCasoRepository,
             BitacoraCasoService bitacoraCasoService,
             NotificacionService notificacionService,
+            DocumentoService documentoService,
             @Value("${qrds.archivos.directorio}") String directorio) {
         this.casoGestionService = casoGestionService;
         this.seguimientoCasoRepository = seguimientoCasoRepository;
         this.bitacoraCasoService = bitacoraCasoService;
         this.notificacionService = notificacionService;
+        this.documentoService = documentoService;
         this.directorio = Path.of(directorio);
     }
 
@@ -165,6 +168,19 @@ public class SeguimientoRegistroService {
                 rutaArchivo,
                 tipoMime,
                 tamanio));
+        if (rutaArchivo != null && nombreArchivo != null && tamanio != null) {
+            documentoService.registrarReferencia(
+                    caso,
+                    seguimiento,
+                    null,
+                    nombreArchivo,
+                    rutaArchivo,
+                    tipoMime,
+                    tamanio,
+                    usuario,
+                    ip,
+                    "Carga de evidencia de seguimiento " + nombreArchivo + " en " + caso.getCodigoSeguimiento() + ".");
+        }
         caso.tocar();
         bitacoraCasoService.registrar(
                 caso,
@@ -209,10 +225,18 @@ public class SeguimientoRegistroService {
         Path ruta = Path.of(seguimiento.getRutaArchivo()).toAbsolutePath().normalize();
         Path raiz = directorio.toAbsolutePath().normalize();
         if (!ruta.startsWith(raiz) || !Files.isRegularFile(ruta)) {
+            bitacoraCasoService.registrarDurable(
+                    caso,
+                    usuario,
+                    TipoEventoCaso.DOCUMENTO_FALTANTE,
+                    "Falta la evidencia " + seguimiento.getNombreArchivo() + " del caso "
+                            + caso.getCodigoSeguimiento() + ".",
+                    ip);
+            notificacionService.avisarDocumentoFaltante(caso, seguimiento.getNombreArchivo());
             throw new ApiException(
                     HttpStatus.NOT_FOUND,
                     "DOCUMENTO_NO_ENCONTRADO",
-                    "El documento solicitado no existe en este caso.");
+                    "El documento no está disponible.");
         }
         bitacoraCasoService.registrar(
                 caso,

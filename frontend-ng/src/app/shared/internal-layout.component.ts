@@ -32,6 +32,22 @@ export class InternalLayoutComponent {
     return this.rol ? this.auth.inicioPorRol[this.rol] : '/login';
   }
 
+  get reportes() {
+    return this.rol === 'ADMIN' ? '/admin/reportes' : '/supervisor/reportes';
+  }
+
+  get usuarios() {
+    return this.rol === 'ADMIN' ? '/admin/usuarios' : '/supervisor/usuarios';
+  }
+
+  get bitacoras() {
+    return this.rol === 'ADMIN' ? '/admin/bitacoras' : '/supervisor/bitacoras';
+  }
+
+  get parametros() {
+    return this.rol === 'ADMIN' ? '/admin/parametros' : '/supervisor/parametros';
+  }
+
   async logout() {
     try {
       if (this.auth.getToken()) await this.api.cerrarSesion();

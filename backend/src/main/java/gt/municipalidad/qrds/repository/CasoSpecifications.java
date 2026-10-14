@@ -84,4 +84,20 @@ public final class CasoSpecifications {
         }
         return spec;
     }
+
+    public static Specification<Caso> abiertos() {
+        return (root, query, builder) -> builder.not(root.get("estado").in(EstadoCaso.CERRADO, EstadoCaso.ANULADO));
+    }
+
+    public static Specification<Caso> vencidosAbiertos(LocalDate hoy) {
+        return abiertos().and((root, query, builder) -> builder.or(
+                builder.isTrue(root.get("escalado")),
+                builder.and(
+                        builder.isNotNull(root.get("fechaLimiteRespuesta")),
+                        builder.lessThan(root.get("fechaLimiteRespuesta"), hoy))));
+    }
+
+    public static Specification<Caso> asignadosA(Usuario usuario) {
+        return (root, query, builder) -> builder.equal(root.get("agenteAsignado"), usuario);
+    }
 }

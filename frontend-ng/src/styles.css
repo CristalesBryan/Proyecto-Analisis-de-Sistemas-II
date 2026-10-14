@@ -366,6 +366,11 @@ table.bandeja th {
   background: #fff;
 }
 
+.dropzone.activa {
+  border-color: #1f4b3a;
+  background: #f4f7f5;
+}
+
 .login-card {
   animation: login-enter 700ms ease-out both;
 }

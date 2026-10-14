@@ -56,6 +56,7 @@ public class DataInitializer implements CommandLineRunner {
             sembrarCatalogosYUsuarios();
         }
         asegurarCiudadanoDemo();
+        asegurarAccesoDemo();
         asegurarCorrelativo();
     }
 
@@ -136,7 +137,24 @@ public class DataInitializer implements CommandLineRunner {
         usuario.setAreaDependencia(area);
         usuario.setActivo(activo);
         usuario.setEmailVerificado(true);
+        usuario.setForzarCambioPassword(false);
         return usuarioRepository.save(usuario);
+    }
+
+    private void asegurarAccesoDemo() {
+        for (String email : java.util.List.of(
+                "admin@municipalidad.gob.gt",
+                "supervisor@municipalidad.gob.gt",
+                "agente@municipalidad.gob.gt",
+                "inactivo@municipalidad.gob.gt",
+                "ciudadano@email.com")) {
+            usuarioRepository.findByEmailIgnoreCase(email).ifPresent(usuario -> {
+                if (usuario.isForzarCambioPassword()) {
+                    usuario.setForzarCambioPassword(false);
+                    usuarioRepository.save(usuario);
+                }
+            });
+        }
     }
 
     private void asegurarCiudadanoDemo() {

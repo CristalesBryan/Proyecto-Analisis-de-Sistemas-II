@@ -39,6 +39,10 @@ export class SesionShellComponent implements OnInit {
       .obtenerSesion()
       .then(({ usuario }) => {
         this.auth.guardarSesion(token, usuario);
+        if (usuario.forzarCambioPassword && !this.router.url.startsWith('/perfil')) {
+          void this.router.navigateByUrl('/perfil');
+          return;
+        }
         if (!permitidos.includes(usuario.rol)) {
           void this.router.navigateByUrl('/acceso-denegado');
           return;

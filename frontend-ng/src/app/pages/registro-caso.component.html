@@ -145,8 +145,13 @@
               @if (esAnonimo) {
                 <p class="border rounded p-3 small text-secondary">En un registro anónimo no se adjuntan documentos para no identificar al ciudadano.</p>
               } @else {
-                <label class="dropzone d-block mb-2">
-                  PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos
+                <label
+                  class="dropzone d-block mb-2"
+                  [class.activa]="arrastrando"
+                  (dragover)="prepararSoltar($event)"
+                  (dragleave)="salirSoltar($event)"
+                  (drop)="soltarArchivos($event)">
+                  Suelte archivos aquí o elija PDF, JPG, PNG o DOCX · máximo 5 MB · hasta 5 archivos
                   <input type="file" class="d-none" multiple accept=".pdf,.jpg,.jpeg,.png,.docx" (change)="agregarArchivos($event)">
                 </label>
                 @if (archivos.length > 0) {

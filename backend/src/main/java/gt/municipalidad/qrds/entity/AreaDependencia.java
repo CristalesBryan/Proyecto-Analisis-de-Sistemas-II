@@ -24,6 +24,9 @@ public class AreaDependencia {
     @Column(nullable = false)
     private boolean activo = true;
 
+    @Column(nullable = false, columnDefinition = "bigint not null default 0")
+    private long revision;
+
     public AreaDependencia() {
     }
 
@@ -59,5 +62,13 @@ public class AreaDependencia {
 
     public void setActivo(boolean activo) {
         this.activo = activo;
+    }
+
+    public long getRevision() {
+        return revision;
+    }
+
+    public void setRevision(long revision) {
+        this.revision = revision;
     }
 }

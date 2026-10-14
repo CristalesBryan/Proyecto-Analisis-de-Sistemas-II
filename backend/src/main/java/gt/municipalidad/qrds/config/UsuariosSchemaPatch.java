@@ -31,14 +31,40 @@ public class UsuariosSchemaPatch implements BeanPostProcessor {
     private void parchear(DataSource dataSource) {
         try (var connection = dataSource.getConnection()) {
             String producto = connection.getMetaData().getDatabaseProductName();
-            if (producto == null || !producto.toLowerCase().contains("h2")) {
+            if (producto == null) {
                 return;
             }
+            String motor = producto.toLowerCase();
             try (var statement = connection.createStatement()) {
-                aplicar(statement);
+                if (motor.contains("postgresql")) {
+                    aplicarPostgres(statement);
+                } else if (motor.contains("h2")) {
+                    aplicar(statement);
+                }
             }
         } catch (Exception ex) {
             log.warn("Parche de esquema omitido: {}", ex.getMessage());
+        }
+    }
+
+    private void aplicarPostgres(Statement statement) throws SQLException {
+        statement.execute("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS forzar_cambio_password BOOLEAN NOT NULL DEFAULT FALSE
+                """);
+        statement.execute("""
+                ALTER TABLE usuarios
+                ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                """);
+        statement.execute(
+                "ALTER TABLE bitacora_casos DROP CONSTRAINT IF EXISTS bitacora_casos_tipo_evento_check");
+        try {
+            statement.execute("""
+                    ALTER TABLE areas_dependencia
+                    ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0
+                    """);
+        } catch (SQLException ex) {
+            log.warn("Columna revision de áreas pendiente: {}", ex.getMessage());
         }
     }
 
@@ -51,6 +77,10 @@ public class UsuariosSchemaPatch implements BeanPostProcessor {
                     "ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS acepta_privacidad BOOLEAN DEFAULT FALSE NOT NULL");
             statement.execute(
                     "ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN DEFAULT FALSE NOT NULL");
+            statement.execute(
+                    "ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS forzar_cambio_password BOOLEAN DEFAULT FALSE NOT NULL");
+            statement.execute(
+                    "ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP");
             statement.execute("ALTER TABLE IF EXISTS usuarios ALTER COLUMN rol SET DATA TYPE VARCHAR(20)");
             statement.execute(
                     "ALTER TABLE IF EXISTS bitacora_accesos ALTER COLUMN tipo_evento SET DATA TYPE VARCHAR(30)");

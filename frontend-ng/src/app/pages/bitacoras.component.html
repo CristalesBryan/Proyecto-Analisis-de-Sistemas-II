@@ -1,0 +1,158 @@
+<app-internal-layout>
+  <div class="panel p-4 mb-4">
+    <h1 class="h3 mb-2">Bitácoras de auditoría</h1>
+    <div class="alert alert-secondary mb-4" role="status">
+      Los registros de bitácora son de solo lectura e inmutables.
+    </div>
+
+    <form class="row g-3" (ngSubmit)="buscar(0)">
+      <div class="col-md-3">
+        <label class="form-label" for="desde">Desde</label>
+        <input id="desde" class="form-control" type="date" name="desde" [(ngModel)]="desde" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="hasta">Hasta</label>
+        <input id="hasta" class="form-control" type="date" name="hasta" [(ngModel)]="hasta" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="dominio">Ámbito</label>
+        <select id="dominio" class="form-select" name="dominio" [(ngModel)]="dominio">
+          @for (opcion of dominios; track opcion.valor) {
+            <option [value]="opcion.valor">{{ opcion.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="tipo">Tipo de evento</label>
+        <input id="tipo" class="form-control" name="tipo" [(ngModel)]="tipo" placeholder="LOGIN, CREACION…" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="usuario">Usuario</label>
+        <select id="usuario" class="form-select" name="usuarioId" [(ngModel)]="usuarioId">
+          <option value="">Todos</option>
+          @if (yo) {
+            <option [value]="yo">Mis eventos</option>
+          }
+          @for (usuario of usuarios; track usuario.id) {
+            <option [value]="usuario.id">{{ usuario.nombre }}</option>
+          }
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="caso">Código de caso</label>
+        <input id="caso" class="form-control" name="caso" [(ngModel)]="caso" placeholder="Q-2026-00001" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="ip">Dirección</label>
+        <input id="ip" class="form-control" name="ip" [(ngModel)]="ip" />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label" for="resultado">Resultado</label>
+        <input id="resultado" class="form-control" name="resultado" [(ngModel)]="resultado" placeholder="OK" />
+      </div>
+      <div class="col-12 d-flex flex-wrap gap-2">
+        <button class="btn btn-primary" type="submit" [disabled]="cargando">Consultar</button>
+        <button class="btn btn-outline-civic" type="button" [disabled]="exportando" (click)="exportar('PDF')">
+          Exportar PDF
+        </button>
+        <button class="btn btn-outline-civic" type="button" [disabled]="exportando" (click)="exportar('XLSX')">
+          Exportar Excel
+        </button>
+      </div>
+    </form>
+  </div>
+
+  @if (error) {
+    <div class="alert alert-danger" role="alert">{{ error }}</div>
+  }
+  @if (mensaje) {
+    <div class="alert alert-info" role="status">{{ mensaje }}</div>
+  }
+
+  <div class="panel p-0 mb-4">
+    <div class="table-responsive">
+      <table class="table mb-0 align-middle">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Ámbito</th>
+            <th>Tipo</th>
+            <th>Usuario</th>
+            <th>Caso</th>
+            <th>Descripción</th>
+            <th>Resultado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (cargando) {
+            <tr>
+              <td colspan="7" class="text-secondary p-4">Consultando eventos…</td>
+            </tr>
+          } @else if (eventos.length === 0) {
+            <tr>
+              <td colspan="7" class="text-secondary p-4">No hay eventos para mostrar.</td>
+            </tr>
+          } @else {
+            @for (evento of eventos; track evento.clave) {
+              <tr>
+                <td>{{ formatFechaHora(evento.fechaHora) }}</td>
+                <td>{{ evento.dominio }}</td>
+                <td>{{ evento.tipoEvento }}</td>
+                <td>{{ evento.usuario }}</td>
+                <td>{{ evento.caso || '—' }}</td>
+                <td>{{ evento.descripcion || '—' }}</td>
+                <td>
+                  {{ evento.resultado || '—' }}
+                  <button type="button" class="btn btn-link btn-sm" (click)="abrir(evento)">Detalle</button>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  @if (totalPaginas > 1) {
+    <div class="d-flex align-items-center gap-2 mb-4">
+      <button class="btn btn-outline-civic btn-sm" type="button" [disabled]="pagina === 0" (click)="buscar(pagina - 1)">
+        Anterior
+      </button>
+      <span class="small text-secondary">Página {{ pagina + 1 }} de {{ totalPaginas }} · {{ total }} eventos</span>
+      <button
+        class="btn btn-outline-civic btn-sm"
+        type="button"
+        [disabled]="pagina + 1 >= totalPaginas"
+        (click)="buscar(pagina + 1)"
+      >
+        Siguiente
+      </button>
+    </div>
+  }
+
+  @if (detalle) {
+    <div class="panel p-4">
+      <h2 class="h5">Detalle del evento</h2>
+      <dl class="row mb-0">
+        <dt class="col-sm-3">Fecha</dt>
+        <dd class="col-sm-9">{{ formatFechaHora(detalle.fechaHora) }}</dd>
+        <dt class="col-sm-3">Tipo</dt>
+        <dd class="col-sm-9">{{ detalle.dominio }} · {{ detalle.tipoEvento }}</dd>
+        <dt class="col-sm-3">Usuario</dt>
+        <dd class="col-sm-9">{{ detalle.usuario }}</dd>
+        <dt class="col-sm-3">Caso</dt>
+        <dd class="col-sm-9">{{ detalle.caso || '—' }}</dd>
+        <dt class="col-sm-3">Descripción</dt>
+        <dd class="col-sm-9">{{ detalle.descripcion || '—' }}</dd>
+        <dt class="col-sm-3">Estados</dt>
+        <dd class="col-sm-9">{{ detalle.estadoAnterior || '—' }} → {{ detalle.estadoNuevo || '—' }}</dd>
+        <dt class="col-sm-3">Dirección</dt>
+        <dd class="col-sm-9">{{ detalle.ipCliente || '—' }}</dd>
+        <dt class="col-sm-3">Resultado</dt>
+        <dd class="col-sm-9">{{ detalle.resultado || '—' }}</dd>
+        <dt class="col-sm-3">Agente de usuario</dt>
+        <dd class="col-sm-9">{{ detalle.userAgent || '—' }}</dd>
+      </dl>
+    </div>
+  }
+</app-internal-layout>

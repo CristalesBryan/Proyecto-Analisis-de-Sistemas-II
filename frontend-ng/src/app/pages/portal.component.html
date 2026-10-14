@@ -14,7 +14,7 @@
       <nav class="nav-public d-flex flex-wrap align-items-center justify-content-between gap-3">
         <a routerLink="/" class="brand">
           <span class="brand-mark">QRDS</span>
-          <span class="brand-sub d-none d-sm-inline">Municipalidad</span>
+          <span class="brand-sub d-none d-sm-inline">{{ nombreInstitucion }}</span>
         </a>
         <div class="d-flex flex-wrap align-items-center justify-content-end gap-3 gap-sm-4 flex-grow-1">
           <a routerLink="/registro-caso" [queryParams]="{ tipo: 'Q' }" class="nav-link-plain">Registrar Queja</a>
@@ -140,7 +140,7 @@
       <div class="mx-auto d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3" style="max-width: 72rem;">
         <div>
           <p class="fw-medium mb-1">QRDS Municipal</p>
-          <p class="small text-secondary mb-0">© {{ anio }} Municipalidad. Todos los derechos reservados.</p>
+          <p class="small text-secondary mb-0">© {{ anio }} {{ nombreInstitucion }}. Todos los derechos reservados.</p>
         </div>
         <div class="d-flex flex-wrap gap-4 small text-secondary">
           <span>Versión del sistema 1.0</span>
