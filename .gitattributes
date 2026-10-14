@@ -20,5 +20,5 @@ backend/.mvn/** linguist-vendored
 *.cmd linguist-vendored
 
 # Scripts SQL (esquema, seeds y migraciones)
-*.sql linguist-detectable=false
-database/*.sql linguist-detectable=false
+*.sql linguist-vendored
+database/** linguist-vendored
